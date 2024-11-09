@@ -32,11 +32,10 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_vehicles.h"
 #include "hitlocs.h"
 #include "bset.h"
-#include "physics_ragdoll.h"  // bez ¿adnych dodatkowych œcie¿ek, bo jesteœmy w tym samym folderze
-
-class SimpleRagdoll;  // Forward declaration
 
 #define	FOFS(x) offsetof(gentity_t, x)
+
+class SimpleRagdoll;
 
 typedef enum //# taskID_e
 {
@@ -48,7 +47,7 @@ typedef enum //# taskID_e
 	TID_ANGLE_FACE,		// Turning to an angle or facing
 	TID_BSTATE,			// Waiting for a certain bState to finish
 	TID_LOCATION,		// Waiting for ent to enter a specific trigger_location
-//	TID_MISSIONSTATUS,	// Waiting for player to finish reading MISSION STATUS SCREEN
+	//	TID_MISSIONSTATUS,	// Waiting for player to finish reading MISSION STATUS SCREEN
 	TID_RESIZE,			// Waiting for clear bbox to inflate size
 	TID_SHOOT,			// Waiting for fire event
 	NUM_TIDS,			// for def of taskID array
@@ -119,10 +118,10 @@ public:
 
 	sfxHandle_t		sounds[MAX_CUSTOM_SOUNDS];
 
-	char			*customBasicSoundDir;
-	char			*customCombatSoundDir;
-	char			*customExtraSoundDir;
-	char			*customJediSoundDir;
+	char* customBasicSoundDir;
+	char* customCombatSoundDir;
+	char* customExtraSoundDir;
+	char* customJediSoundDir;
 
 
 	void sg_export(
@@ -714,7 +713,7 @@ public:
 	vec3_t		damage_from;		// origin for vector calculation
 	bool		damage_fromWorld;	// if true, don't use the damage_from vector
 	bool		noclip;
-//icarus forced moving.  is this still used?
+	//icarus forced moving.  is this still used?
 	signed char		forced_forwardmove;
 	signed char		forced_rightmove;
 
@@ -746,7 +745,7 @@ public:
 	//Used to be in gentity_t, now here.. mostly formation stuff
 	team_t		playerTeam;
 	team_t		enemyTeam;
-	gentity_t	*leader;
+	gentity_t* leader;
 	class_t		NPC_class;
 
 	//FIXME: could combine these
@@ -973,17 +972,17 @@ typedef struct centity_s centity_t;
 // !!!!!!!!!!! LOADSAVE-affecting struct !!!!!!!!!!!!!
 struct gentity_s {
 	entityState_t	s;				// communicated by server to clients
-	gclient_t	*client;	// NULL if not a player (unless it's NPC ( if (this->NPC != NULL)  )  <sigh>... -slc)
+	gclient_t* client;	// NULL if not a player (unless it's NPC ( if (this->NPC != NULL)  )  <sigh>... -slc)
 	qboolean	inuse;
 	qboolean	linked;				// qfalse if not in any good cluster
 
 	int			svFlags;			// SVF_NOCLIENT, SVF_BROADCAST, etc
 
 	qboolean	bmodel;				// if false, assume an explicit mins / maxs bounding box
-									// only set by gi.SetBrushModel
+	// only set by gi.SetBrushModel
 	vec3_t		mins, maxs;
 	int			contents;			// CONTENTS_TRIGGER, CONTENTS_SOLID, CONTENTS_BODY, etc
-									// a non-solid entity should set to 0
+	// a non-solid entity should set to 0
 
 	vec3_t		absmin, absmax;		// derived from mins/maxs and origin + rotation
 
@@ -994,24 +993,26 @@ struct gentity_s {
 	vec3_t		currentOrigin;
 	vec3_t		currentAngles;
 
-	gentity_t	*owner;				// objects never interact with their owners, to
-									// prevent player missiles from immediately
-									// colliding with their owner
+	gentity_t* owner;				// objects never interact with their owners, to
+	// prevent player missiles from immediately
+	// colliding with their owner
 /*
 Ghoul2 Insert Start
 */
-	// this marker thing of Jake's is used for memcpy() length calcs, so don't put any ordinary fields (like above)
-	//	below this point or they won't work, and will mess up all sorts of stuff.
-	//
+// this marker thing of Jake's is used for memcpy() length calcs, so don't put any ordinary fields (like above)
+//	below this point or they won't work, and will mess up all sorts of stuff.
+//
 	CGhoul2Info_v	ghoul2;
 
 	vec3_t			modelScale; //needed for g2 collision
-/*
-Ghoul2 Insert End
-*/
+	/*
+	Ghoul2 Insert End
+	*/
 
 	// DO NOT MODIFY ANYTHING ABOVE THIS, THE SERVER
 	// EXPECTS THE FIELDS IN THAT ORDER!
+
+	SimpleRagdoll* physRagdoll;
 
 //==========================================================================================
 
@@ -1019,25 +1020,25 @@ Ghoul2 Insert End
 	// note: all the char* fields from here on should be left as ptrs, not declared, because of the way that ent-parsing
 	//	works by forcing field offset ptrs as char* and using G_NewString()!! (see G_ParseField() in gmae/g_spawn.cpp -slc
 	//
-	char		*classname;			// set in QuakeEd
+	char* classname;			// set in QuakeEd
 	int			spawnflags;			// set in QuakeEd
 
 	int			flags;				// FL_* variables
 
-	char		*model;				// Normal model, or legs model on tri-models
-	char		*model2;			// Torso model
+	char* model;				// Normal model, or legs model on tri-models
+	char* model2;			// Torso model
 
 	int			freetime;			// sv.time when the object was freed
 
 	int			eventTime;			// events will be cleared EVENT_VALID_MSEC after set
 	qboolean	freeAfterEvent;
-//	qboolean	unlinkAfterEvent;
+	//	qboolean	unlinkAfterEvent;
 
-//Physics and movement fields
+	//Physics and movement fields
 	float		physicsBounce;		// 1.0 = continuous bounce, 0.0 = no bounce
 	int			clipmask;			// brushes with this content value will be collided against
-									// when moving.  items and corpses do not collide against
-									// players, for instance
+	// when moving.  items and corpses do not collide against
+	// players, for instance
 //	moveInfo_t	moveInfo;		//FIXME: use this more?
 	float		speed;
 	float		resultspeed;
@@ -1048,26 +1049,26 @@ Ghoul2 Insert End
 	float		mass;				//How heavy you are
 	int			lastImpact;			//Last time you impacted something
 
-//Variables reflecting environment
+	//Variables reflecting environment
 	int			watertype;
 	int			waterlevel;
 	short		wupdate;
 	short		prev_waterlevel;
 
-//Targeting/linking fields
+	//Targeting/linking fields
 	float		angle;			// set in editor, -1 = up, -2 = down
-	char		*target;
-	char		*target2;		//For multiple targets, not used for firing/triggering/using, though, only for path branches
-	char		*target3;		//For multiple targets, not used for firing/triggering/using, though, only for path branches
-	char		*target4;		//For multiple targets, not used for firing/triggering/using, though, only for path branches
-	char		*targetJump;
-	char		*targetname;
-	char		*team;
+	char* target;
+	char* target2;		//For multiple targets, not used for firing/triggering/using, though, only for path branches
+	char* target3;		//For multiple targets, not used for firing/triggering/using, though, only for path branches
+	char* target4;		//For multiple targets, not used for firing/triggering/using, though, only for path branches
+	char* targetJump;
+	char* targetname;
+	char* team;
 
 	union
 	{
-		char      *roff;                  // the roff file to use, if there is one
-		char	*fxFile;		// name of the external effect file
+		char* roff;                  // the roff file to use, if there is one
+		char* fxFile;		// name of the external effect file
 	};
 
 	int		roff_ctr;		// current roff frame we are playing
@@ -1075,7 +1076,7 @@ Ghoul2 Insert End
 	int			next_roff_time;
 	int			fx_time;		// timer for beam in/out effects.
 
-//Think Functions
+	//Think Functions
 	int			nextthink;//Used to determine if it's time to call e_ThinkFunc again
 	thinkFunc_t		e_ThinkFunc;//Called once every game frame for every ent
 	clThinkFunc_t	e_clThinkFunc;//Think func for equivalent centity
@@ -1086,7 +1087,7 @@ Ghoul2 Insert End
 	painFunc_t		e_PainFunc;	//Called by G_Damage when damage is taken
 	dieFunc_t		e_DieFunc;	//Called by G_Damage when health reaches <= 0
 
-//Health and damage fields
+	//Health and damage fields
 	int			health;
 	int			max_health;
 	qboolean	takedamage;
@@ -1101,15 +1102,15 @@ Ghoul2 Insert End
 	//int			hitLoc;//where you were last hit
 	int			locationDamage[HL_MAX];		// Damage accumulated on different body locations
 
-//Entity pointers
-	gentity_t	*chain;
-	gentity_t	*enemy;
-	gentity_t	*activator;
-	gentity_t	*teamchain;		// next entity in team
-	gentity_t	*teammaster;	// master of the team
-	gentity_t	*lastEnemy;
+	//Entity pointers
+	gentity_t* chain;
+	gentity_t* enemy;
+	gentity_t* activator;
+	gentity_t* teamchain;		// next entity in team
+	gentity_t* teammaster;	// master of the team
+	gentity_t* lastEnemy;
 
-//Timing variables, counters and debounce times
+	//Timing variables, counters and debounce times
 	float		wait;
 	float		random;
 	int			delay;
@@ -1124,7 +1125,7 @@ Ghoul2 Insert End
 	int			aimDebounceTime;
 	int			useDebounceTime;
 
-//Unions for miscellaneous fields used under very specific circumstances
+	//Unions for miscellaneous fields used under very specific circumstances
 	union
 	{
 		qboolean	trigger_formation;
@@ -1132,7 +1133,7 @@ Ghoul2 Insert End
 		qboolean	has_bounced;	// for thermal Det.  we force at least one bounce to happen before it can do proximity checks
 	};
 
-//Navigation
+	//Navigation
 	int			spawnContents;		// store contents of ents on spawn so nav system can restore them
 	int			waypoint;			//Set once per frame, if you've moved, and if someone asks
 	int			wayedge;			//Used by doors and breakable things to know what edge goes through them
@@ -1144,30 +1145,30 @@ Ghoul2 Insert End
 	int			followPosRecalcTime;
 	int			followPosWaypoint;
 
-//Animation
+	//Animation
 	qboolean	loopAnim;
 	int		startFrame;
 	int		endFrame;
 
-//Script/ICARUS-related fields
+	//Script/ICARUS-related fields
 	int				m_iIcarusID;
 	int				taskID[NUM_TIDS];
-	parms_t			*parms;
-	char		*behaviorSet[NUM_BSETS];
-	char		*script_targetname;
+	parms_t* parms;
+	char* behaviorSet[NUM_BSETS];
+	char* script_targetname;
 	int			delayScriptTime;
 
-// Ambient sound info
-	char			*soundSet;	//Only used for local sets
+	// Ambient sound info
+	char* soundSet;	//Only used for local sets
 	int				setTime;
 
-//Used by cameras to locate subjects
-	char			*cameraGroup;
+	//Used by cameras to locate subjects
+	char* cameraGroup;
 
-//For damage
+	//For damage
 	team_t		noDamageTeam;
 
-// Ghoul2 Animation info
+	// Ghoul2 Animation info
 	short			playerModel;
 	short			weaponModel[MAX_INHAND_WEAPONS];
 	short			handRBolt;
@@ -1210,47 +1211,46 @@ Ghoul2 Insert End
 
 	qhandle_t		cinematicModel;
 
-//==========================================================================================
+	//==========================================================================================
 
-//FIELDS USED EXCLUSIVELY BY SPECIFIC CLASSES OF ENTITIES
-	// Vehicle information.
-	// The vehicle object.
-	Vehicle_t *m_pVehicle;
-	SimpleRagdoll *physRagdoll;
+	//FIELDS USED EXCLUSIVELY BY SPECIFIC CLASSES OF ENTITIES
+		// Vehicle information.
+		// The vehicle object.
+	Vehicle_t* m_pVehicle;
 
 	//NPC/Player entity fields
 	//FIXME: Make these client only?
-	gNPC_t		*NPC;//Only allocated if the entity becomes an NPC
+	gNPC_t* NPC;//Only allocated if the entity becomes an NPC
 
 	//Other NPC/Player-related entity fields
-	char		*ownername;//Used by squadpaths to locate owning NPC
+	char* ownername;//Used by squadpaths to locate owning NPC
 
-//FIXME: Only used by NPCs, move it to gNPC_t
+	//FIXME: Only used by NPCs, move it to gNPC_t
 	int			cantHitEnemyCounter;//HACK - Makes them look for another enemy on the same team if the one they're after can't be hit
 
-//Only used by NPC_spawners
-	char		*NPC_type;
-	char		*NPC_targetname;
-	char		*NPC_target;
+	//Only used by NPC_spawners
+	char* NPC_type;
+	char* NPC_targetname;
+	char* NPC_target;
 
-//Variables used by movers (most likely exclusively by them)
+	//Variables used by movers (most likely exclusively by them)
 	moverState_t moverState;
 	int			soundPos1;
 	int			sound1to2;
 	int			sound2to1;
 	int			soundPos2;
 	int			soundLoop;
-	gentity_t	*nextTrain;
-	gentity_t	*prevTrain;
+	gentity_t* nextTrain;
+	gentity_t* prevTrain;
 	vec3_t		pos1, pos2;
 	vec3_t		pos3;
 	int			sounds;
-	char		*closetarget;
-	char		*opentarget;
-	char		*paintarget;
+	char* closetarget;
+	char* opentarget;
+	char* paintarget;
 	int			lockCount;	//for maglocks- actually get put on the trigger for the door
 
-//Variables used only by waypoints (for the most part)
+	//Variables used only by waypoints (for the most part)
 	float		radius;
 
 	union
@@ -1270,9 +1270,9 @@ Ghoul2 Insert End
 		vec3_t		modelAngles;	//for brush entities with an attached md3 model, as an offset to the brush's angles
 	};
 
-//FIXME: Are these being used anymore?
-	gitem_t		*item;			// for bonus items -
-	char		*message;		//Used by triggers to print a message when activated
+	//FIXME: Are these being used anymore?
+	gitem_t* item;			// for bonus items -
+	char* message;		//Used by triggers to print a message when activated
 
 	float		lightLevel;
 
@@ -1673,7 +1673,7 @@ extern	game_import_t	gi;
 // weapon and its effects
 typedef struct weaponInfo_s {
 	qboolean		registered;
-	gitem_t			*item;
+	gitem_t* item;
 
 	qhandle_t		handsModel;			// the hands don't actually draw, they just position the weapon
 	qhandle_t		weaponModel;		//for in view
@@ -1690,14 +1690,14 @@ typedef struct weaponInfo_s {
 
 	qhandle_t		missileModel;
 	sfxHandle_t		missileSound;
-	void			(*missileTrailFunc)( centity_t *, const struct weaponInfo_s *wi );
+	void			(*missileTrailFunc)(centity_t*, const struct weaponInfo_s* wi);
 
 	qhandle_t		alt_missileModel;
 	sfxHandle_t		alt_missileSound;
-	void			(*alt_missileTrailFunc)( centity_t *, const struct weaponInfo_s *wi );
+	void			(*alt_missileTrailFunc)(centity_t*, const struct weaponInfo_s* wi);
 
-//	sfxHandle_t		flashSound;
-//	sfxHandle_t		altFlashSound;
+	//	sfxHandle_t		flashSound;
+	//	sfxHandle_t		altFlashSound;
 
 	sfxHandle_t		firingSound;
 	sfxHandle_t		altFiringSound;
@@ -1713,7 +1713,7 @@ typedef struct weaponInfo_s {
 	sfxHandle_t		selectSound;	// sound played when weapon is selected
 } weaponInfo_t;
 
-extern sfxHandle_t CAS_GetBModelSound( const char *name, int stage );
+extern sfxHandle_t CAS_GetBModelSound(const char* name, int stage);
 
 enum
 {

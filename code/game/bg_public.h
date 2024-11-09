@@ -129,7 +129,7 @@ typedef enum {
 typedef struct gentity_s gentity_t;
 typedef struct {
 	// state (in / out)
-	playerState_t	*ps;
+	playerState_t* ps;
 
 	// command (in)
 	usercmd_t	cmd;
@@ -149,18 +149,18 @@ typedef struct {
 	int			waterlevel;
 
 	float		xyspeed;
-	gentity_s	*gent;				// Pointer to entity in g_entities[]
+	gentity_s* gent;				// Pointer to entity in g_entities[]
 
 	// callbacks to test the world
 	// these will be different functions during game and cgame
-	void		(*trace)( trace_t *results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
-						const int passEntityNum, const int contentMask, const EG2_Collision eG2TraceType, const int useLod );
-	int			(*pointcontents)( const vec3_t point, int passEntityNum );
+	void		(*trace)(trace_t* results, const vec3_t start, const vec3_t mins, const vec3_t maxs, const vec3_t end,
+		const int passEntityNum, const int contentMask, const EG2_Collision eG2TraceType, const int useLod);
+	int			(*pointcontents)(const vec3_t point, int passEntityNum);
 } pmove_t;
 
 // if a full pmove isn't done on the client, you can just update the angles
-void PM_UpdateViewAngles( playerState_t *ps, usercmd_t *cmd, gentity_t *gent );
-void Pmove( pmove_t *pmove );
+void PM_UpdateViewAngles(playerState_t* ps, usercmd_t* cmd, gentity_t* gent);
+void Pmove(pmove_t* pmove);
 
 
 #define SETANIM_TORSO 1
@@ -175,8 +175,8 @@ void Pmove( pmove_t *pmove );
 
 #define SETANIM_BLEND_DEFAULT	100
 
-void PM_SetAnim(pmove_t	*pm,int setAnimParts,int anim,int setAnimFlags, int blendTime=SETANIM_BLEND_DEFAULT);
-void PM_SetAnimFinal(int *torsoAnim,int *legsAnim,int type,int anim,int priority,int *torsoAnimTimer,int *legsAnimTimer,gentity_t *gent,int blendTime=SETANIM_BLEND_DEFAULT);
+void PM_SetAnim(pmove_t* pm, int setAnimParts, int anim, int setAnimFlags, int blendTime = SETANIM_BLEND_DEFAULT);
+void PM_SetAnimFinal(int* torsoAnim, int* legsAnim, int type, int anim, int priority, int* torsoAnimTimer, int* legsAnimTimer, gentity_t* gent, int blendTime = SETANIM_BLEND_DEFAULT);
 
 //===================================================================================
 
@@ -193,7 +193,7 @@ typedef enum {
 	PERS_HITS,						// total points damage inflicted so damage beeps can sound on change
 	PERS_TEAM,
 	PERS_SPAWN_COUNT,				// incremented every respawn
-//	PERS_REWARD_COUNT,				// incremented for each reward sound
+	//	PERS_REWARD_COUNT,				// incremented for each reward sound
 	PERS_ATTACKER,					// clientnum of last damage inflicter
 	PERS_KILLED,					// count of the number of times you died
 
@@ -250,7 +250,7 @@ typedef enum {
 	PW_UNCLOAKING,
 	PW_DISRUPTION,
 	PW_GALAK_SHIELD,
-//	PW_WEAPON_OVERCHARGE,
+	//	PW_WEAPON_OVERCHARGE,
 	PW_SEEKER,
 	PW_SHOCKED,//electricity effect
 	PW_DRAINED,//drain effect
@@ -339,10 +339,10 @@ typedef enum {
 	EV_DISRUPTOR_SNIPER_MISS,
 
 	EV_DEMP2_ALT_IMPACT,
-//NEW for JKA weapons:
+	//NEW for JKA weapons:
 	EV_CONC_ALT_SHOT,
 	EV_CONC_ALT_MISS,
-//END JKA weapons
+	//END JKA weapons
 	EV_PAIN,
 	EV_DEATH1,
 	EV_DEATH2,
@@ -544,7 +544,7 @@ typedef struct animevent_s
 	unsigned short	glaIndex;
 	unsigned short	keyFrame;			//Frame to play event on
 	signed short	eventData[AED_ARRAY_SIZE];	//Unique IDs, can be soundIndex of sound file to play OR effect index or footstep type, etc.
-	char			*stringData;		//we allow storage of one string, temporarily (in case we have to look up an index later, then make sure to set stringData to NULL so we only do the look-up once)
+	char* stringData;		//we allow storage of one string, temporarily (in case we have to look up an index later, then make sure to set stringData to NULL so we only do the look-up once)
 
 
 	void sg_export(
@@ -584,7 +584,7 @@ typedef enum {
 
 	MOD_UNKNOWN,
 
-// weapons
+	// weapons
 	MOD_SABER,
 	MOD_BRYAR,
 	MOD_BRYAR_ALT,
@@ -602,10 +602,10 @@ typedef enum {
 	MOD_FLECHETTE_ALT,
 	MOD_ROCKET,
 	MOD_ROCKET_ALT,
-//NEW for JKA weapons:
+	//NEW for JKA weapons:
 	MOD_CONC,
 	MOD_CONC_ALT,
-//END JKA weapons.
+	//END JKA weapons.
 	MOD_THERMAL,
 	MOD_THERMAL_ALT,
 	MOD_DETPACK,
@@ -618,7 +618,7 @@ typedef enum {
 	MOD_FORCE_DRAIN,
 	MOD_EMPLACED,
 
-// world / generic
+	// world / generic
 	MOD_ELECTROCUTE,
 	MOD_EXPLOSIVE,
 	MOD_EXPLOSIVE_SPLASH,
@@ -659,19 +659,19 @@ typedef enum
 
 
 typedef struct gitem_s {
-	const char	*classname;	// spawning name
-	const char	*pickup_sound;
-	const char	*world_model;
+	const char* classname;	// spawning name
+	const char* pickup_sound;
+	const char* world_model;
 
-	const char	*icon;
+	const char* icon;
 
 	int			quantity;		// for ammo how much, or duration of powerup
 	itemType_t  giType;			// IT_* flags
 
 	int			giTag;
 
-	const char	*precaches;		// string of all models and images this item will use
-	const char	*sounds;		// string of all sounds this item will use
+	const char* precaches;		// string of all models and images this item will use
+	const char* sounds;		// string of all sounds this item will use
 	vec3_t		mins;			// Bbox
 	vec3_t		maxs;			// Bbox
 } gitem_t;
@@ -701,13 +701,13 @@ extern ammoData_t ammoData[AMMO_MAX];
 
 //==============================================================================
 
-gitem_t	*FindItem( const char *className );
-gitem_t	*FindItemForWeapon( weapon_t weapon );
-gitem_t	*FindItemForInventory( int inv );
+gitem_t* FindItem(const char* className);
+gitem_t* FindItemForWeapon(weapon_t weapon);
+gitem_t* FindItemForInventory(int inv);
 
 #define	ITEM_INDEX(x) ((x)-bg_itemlist)
 
-qboolean	BG_CanItemBeGrabbed( const entityState_t *ent, const playerState_t *ps );
+qboolean	BG_CanItemBeGrabbed(const entityState_t* ent, const playerState_t* ps);
 
 
 // content masks
@@ -752,14 +752,14 @@ typedef enum {
 
 
 
-void	EvaluateTrajectory( const trajectory_t *tr, int atTime, vec3_t result );
-void	EvaluateTrajectoryDelta( const trajectory_t *tr, int atTime, vec3_t result );
+void	EvaluateTrajectory(const trajectory_t* tr, int atTime, vec3_t result);
+void	EvaluateTrajectoryDelta(const trajectory_t* tr, int atTime, vec3_t result);
 
-void AddEventToPlayerstate( int newEvent, int eventParm, playerState_t *ps );
-int	CurrentPlayerstateEvent( playerState_t *ps );
+void AddEventToPlayerstate(int newEvent, int eventParm, playerState_t* ps);
+int	CurrentPlayerstateEvent(playerState_t* ps);
 
-void PlayerStateToEntityState( playerState_t *ps, entityState_t *s );
+void PlayerStateToEntityState(playerState_t* ps, entityState_t* s);
 
-qboolean	BG_PlayerTouchesItem( playerState_t *ps, entityState_t *item, int atTime );
+qboolean	BG_PlayerTouchesItem(playerState_t* ps, entityState_t* item, int atTime);
 
 #endif//#ifndef __BG_PUBLIC_H__

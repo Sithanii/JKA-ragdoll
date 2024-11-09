@@ -31,6 +31,9 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "anims.h"
 #include "objectives.h"
 #include "../cgame/cg_local.h"	// yeah I know this is naughty, but we're shipping soon...
+#include "g_local.h"
+#include "physics_ragdoll.h"
+#include "../../build/bullet3-master/src/btBulletDynamicsCommon.h"
 
 //rww - RAGDOLL_BEGIN
 #include "../ghoul2/ghoul2_gore.h"
@@ -38,6 +41,12 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #include "qcommon/ojk_saved_game_helper.h"
 #include "qcommon/q_version.h"
+
+btDefaultCollisionConfiguration* collisionConfiguration = nullptr;
+btCollisionDispatcher* dispatcher = nullptr;
+btBroadphaseInterface* overlappingPairCache = nullptr;
+btSequentialImpulseConstraintSolver* solver = nullptr;
+btDiscreteDynamicsWorld* dynamicsWorld = nullptr;
 
 extern void WP_SaberLoadParms( void );
 extern qboolean G_PlayerSpawned( void );
@@ -2153,18 +2162,46 @@ void G_LoadSave_WriteMiscData()
 	saved_game.write_chunk<int32_t>(
 		INT_ID('L', 'C', 'K', 'D'),
 		::player_locked);
+	btDefaultCollisionConfiguration* collisionConfiguration = new btDefaultCollisionConfiguration();
+	btCollisionDispatcher* dispatcher = new btCollisionDispatcher(collisionConfiguration);
+	btBroadphaseInterface* overlappingPairCache = new btDbvtBroadphase();
+	btSequentialImpulseConstraintSolver* solver = new btSequentialImpulseConstraintSolver;
+	btDiscreteDynamicsWorld* dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+	dynamicsWorld->setGravity(btVector3(0, -10, 0));
 }
 
 
 
 void G_LoadSave_ReadMiscData()
 {
-	ojk::SavedGameHelper saved_game(
-		::gi.saved_game);
+	ojk::SavedGameHelper saved_game(::gi.saved_game);
 
+	// Istniej¹cy kod zapisu
 	saved_game.read_chunk<int32_t>(
 		INT_ID('L', 'C', 'K', 'D'),
 		::player_locked);
+
+	// Czyszczenie fizyki
+	if (dynamicsWorld) {
+		delete dynamicsWorld;
+		dynamicsWorld = nullptr;
+	}
+	if (solver) {
+		delete solver;
+		solver = nullptr;
+	}
+	if (overlappingPairCache) {
+		delete overlappingPairCache;
+		overlappingPairCache = nullptr;
+	}
+	if (dispatcher) {
+		delete dispatcher;
+		dispatcher = nullptr;
+	}
+	if (collisionConfiguration) {
+		delete collisionConfiguration;
+		collisionConfiguration = nullptr;
+	}
 }
 
 
