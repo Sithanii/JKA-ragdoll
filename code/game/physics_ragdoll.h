@@ -6,6 +6,12 @@
 #include "../../build/bullet3-master/src/btBulletDynamicsCommon.h"
 #include <vector>
 
+enum BoneOrientation {
+    BONE_ORIENT_X = 0,
+    BONE_ORIENT_Y = 1,
+    BONE_ORIENT_Z = 2
+};
+
 class SimpleRagdoll {
 public:
     SimpleRagdoll(gentity_t* ent);

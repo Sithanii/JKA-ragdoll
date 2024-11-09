@@ -2,6 +2,11 @@
 #include "../qcommon/qcommon.h"
 #include "ghoul2/G2.h"
 
+#pragma comment(lib, "BulletCollision.lib")
+#pragma comment(lib, "BulletDynamics.lib")
+#pragma comment(lib, "BulletSoftBody.lib")
+#pragma comment(lib, "LinearMath.lib")
+
 struct BoneInfo {
     const char* name;
     float mass;
@@ -33,29 +38,30 @@ void SimpleRagdoll::Update(float deltaTime) {
         bone.rigidBody->getMotionState()->getWorldTransform(transform);
         btVector3 position = transform.getOrigin();
 
-        bone.position[0] = position.x();
-        bone.position[1] = position.y();
-        bone.position[2] = position.z();
+        bone.position[0] = static_cast<float>(position.x());
+        bone.position[1] = static_cast<float>(position.y());
+        bone.position[2] = static_cast<float>(position.z());
 
         btQuaternion rotation = transform.getRotation();
         btMatrix3x3 rotMatrix(rotation);
-        float yaw, pitch, roll;
+
+        // Używamy tymczasowych zmiennych typu btScalar (double)
+        btScalar yaw, pitch, roll;
         rotMatrix.getEulerYPR(yaw, pitch, roll);
 
         vec3_t angles;
-        angles[0] = RAD2DEG(pitch);
-        angles[1] = RAD2DEG(yaw);
-        angles[2] = RAD2DEG(roll);
+        angles[0] = static_cast<float>(RAD2DEG(pitch));
+        angles[1] = static_cast<float>(RAD2DEG(yaw));
+        angles[2] = static_cast<float>(RAD2DEG(roll));
 
-        // Użycie enuma Eorientations z OpenJK
         gi.G2API_SetBoneAngles(
             &owner->ghoul2[0],    // ghoul2
             bone.boneName,        // boneName
             angles,               // angles
             BONE_ANGLES_POSTMULT, // flags
-            static_cast<Eorientations>(0),  // up (BONE_UP)
-            static_cast<Eorientations>(1),  // right (BONE_RIGHT)
-            static_cast<Eorientations>(2),  // forward (BONE_FRONT)
+            static_cast<Eorientations>(BONE_ORIENT_X),  // up
+            static_cast<Eorientations>(BONE_ORIENT_Y),  // right
+            static_cast<Eorientations>(BONE_ORIENT_Z),  // forward
             nullptr,             // modelList
             100,                 // blendTime
             level.time          // currentTime
