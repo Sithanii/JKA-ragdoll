@@ -20,6 +20,8 @@ public:
     void Enable(vec3_t force);
     void Update(float deltaTime);
     void ApplyForce(vec3_t force, int boneIndex);
+    float settleThreshold;  // Próg prêdkoœci dla "uspokojenia"
+    bool isSettled;         // Czy ragdoll ju¿ siê uspokoi³
 
 private:
     void CreateBoneConstraints();
@@ -33,12 +35,14 @@ private:
         vec3_t lastPosition;
         vec3_t velocity;
         btRigidBody* rigidBody;
+        btCollisionShape* collisionShape;  // Dodanie kszta³tu kolizji
     };
 
     gentity_t* owner;
     bool isEnabled;
     float gravity;
     std::vector<Bone> bones;
+    btRigidBody* groundBody;
 
     // Bullet Physics components
     btDefaultCollisionConfiguration* collisionConfiguration;

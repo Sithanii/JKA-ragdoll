@@ -3647,23 +3647,6 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int 
 		}
 		return;
 	}
-	if (g_useRagdoll->integer) {
-		if (!self->physRagdoll) {
-			self->physRagdoll = new SimpleRagdoll(self);
-		}
-		vec3_t force;
-		if (inflictor && inflictor != self) {
-			vec3_t dir;
-			// U¿ywamy odpowiednich pól z struktury gentity_t
-			VectorSubtract(self->currentOrigin, inflictor->currentOrigin, dir);
-			VectorNormalize(dir);
-			VectorScale(dir, damage * 10.0f, force);
-		}
-		else {
-			VectorSet(force, 0, 0, -100);
-		}
-		self->physRagdoll->Enable(force);
-	}
 
 	// If the entity is in a vehicle.
 	if (self->client && self->client->NPC_class != CLASS_VEHICLE && self->s.m_iVehicleNum != 0)
@@ -4642,6 +4625,39 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int 
 	self->client->respawnTime = level.time + 2000;//self->client->ps.legsAnimTimer;
 
 	//rww - RAGDOLL_BEGIN
+
+	if (gi.Cvar_VariableIntegerValue("g_useRagdoll"))
+	{
+		if (!self->physRagdoll) {
+			self->physRagdoll = new SimpleRagdoll(self);
+			Com_Printf("Ragdoll enabled for player\n");  // Dodaj log, ¿eby upewniæ siê, ¿e ragdoll jest tworzony
+		}
+		vec3_t force;
+		if (inflictor && inflictor != self) {
+			vec3_t dir;
+			// U¿ywamy odpowiednich pól z struktury gentity_t
+			VectorSubtract(self->currentOrigin, inflictor->currentOrigin, dir);
+			VectorNormalize(dir);
+			VectorScale(dir, damage * 10.0f, force);  // Mo¿esz eksperymentowaæ z wartoœciami, np. 50.0f zamiast 10.0f
+		}
+		else {
+			VectorSet(force, 0, 0, -100);  // Mo¿esz tak¿e zwiêkszyæ tê wartoœæ, aby sprawdziæ, jak to wp³ywa na ragdolla
+		}
+
+		// Logi diagnostyczne
+		Com_Printf("Force applied: (%f, %f, %f)\n", force[0], force[1], force[2]);
+
+		self->physRagdoll->Enable(force);
+
+		// Zatrzymaj animacjê
+		self->client->ps.pm_type = PM_DEAD;
+		self->client->ps.pm_flags |= PM_DEAD;
+
+		// Zablokowanie animacji
+		self->client->ps.legsAnim = 0;
+		self->client->ps.torsoAnim = 0;
+	}
+
 	if (gi.Cvar_VariableIntegerValue("broadsword"))
 	{
 		if (self->client && (!self->NPC || !G_StandardHumanoid(self)))

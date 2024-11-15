@@ -2087,6 +2087,14 @@ void G_RunFrame( int levelTime ) {
 		}
 
 		G_RunThink( ent );	// be aware that ent may be free after returning from here, at least one func frees them
+
+		for (int i = 0; i < MAX_GENTITIES; i++) {
+			gentity_t* ent = &g_entities[i];
+			if (ent->inuse && ent->physRagdoll) {
+				ent->physRagdoll->Update((float)(levelTime - level.previousTime) * 0.001f);
+			}
+		}
+
 		ClearNPCGlobals();			//	but these 2 funcs are ok
 		//UpdateTeamCounters( ent );	//	   to call anyway on a freed ent.
 	}
