@@ -1012,7 +1012,7 @@ Ghoul2 Insert Start
 	// DO NOT MODIFY ANYTHING ABOVE THIS, THE SERVER
 	// EXPECTS THE FIELDS IN THAT ORDER!
 
-	SimpleRagdoll* physRagdoll;
+	SimpleRagdoll *physRagdoll;
 
 //==========================================================================================
 

@@ -51,6 +51,8 @@ extern cvar_t* d_slowmodeath;
 extern gentity_t* player;
 extern cvar_t* debug_subdivision;
 extern cvar_t* g_dismemberProbabilities;
+extern cvar_t* g_useRagdoll;
+extern cvar_t* g_ragdollForce;
 
 gentity_t* g_lastClientDamaged;
 
@@ -3645,22 +3647,23 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int 
 		}
 		return;
 	}
-
-	if (!self->physRagdoll) {
-		self->physRagdoll = new SimpleRagdoll(self);
+	if (g_useRagdoll->integer) {
+		if (!self->physRagdoll) {
+			self->physRagdoll = new SimpleRagdoll(self);
+		}
+		vec3_t force;
+		if (inflictor && inflictor != self) {
+			vec3_t dir;
+			// U¿ywamy odpowiednich pól z struktury gentity_t
+			VectorSubtract(self->currentOrigin, inflictor->currentOrigin, dir);
+			VectorNormalize(dir);
+			VectorScale(dir, damage * 10.0f, force);
+		}
+		else {
+			VectorSet(force, 0, 0, -100);
+		}
+		self->physRagdoll->Enable(force);
 	}
-	vec3_t force;
-	if (inflictor && inflictor != self) {
-		vec3_t dir;
-		// U¿ywamy odpowiednich pól z struktury gentity_t
-		VectorSubtract(self->currentOrigin, inflictor->currentOrigin, dir);
-		VectorNormalize(dir);
-		VectorScale(dir, damage * 10.0f, force);
-	}
-	else {
-		VectorSet(force, 0, 0, -100);
-	}
-	self->physRagdoll->Enable(force);
 
 	// If the entity is in a vehicle.
 	if (self->client && self->client->NPC_class != CLASS_VEHICLE && self->s.m_iVehicleNum != 0)
