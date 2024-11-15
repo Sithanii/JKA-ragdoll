@@ -28,10 +28,16 @@ set(SPGameIncludeDirectories
 	"${SPDir}/game"
 	"${GSLIncludeDirectory}"
 	"${CMAKE_BINARY_DIR}/shared"
+	"${CMAKE_SOURCE_DIR}/build/bullet3-master/src"
 	)
 
 if(WIN32)
-	set(SPGameLibraries "winmm")
+    set(SPGameLibraries "winmm"
+        "${CMAKE_SOURCE_DIR}/build/bullet3-master/build/lib/Release/BulletDynamics.lib"
+        "${CMAKE_SOURCE_DIR}/build/bullet3-master/build/lib/Release/BulletCollision.lib"
+        "${CMAKE_SOURCE_DIR}/build/bullet3-master/build/lib/Release/LinearMath.lib"
+        "${CMAKE_SOURCE_DIR}/build/bullet3-master/build/lib/Release/BulletSoftBody.lib"
+    )
 endif(WIN32)
 
 set(SPGameGameFiles
@@ -183,6 +189,8 @@ set(SPGameGameFiles
 	"${SPDir}/game/w_local.h"
 	"${SPDir}/game/wp_saber.h"
 	"${SPDir}/game/g_vehicles.h"
+	"${SPDir}/game/physics_ragdoll.cpp"
+    	"${SPDir}/game/physics_ragdoll.h"
 	)
 source_group("game" FILES ${SPGameGameFiles})
 set(SPGameFiles ${SPGameFiles} ${SPGameGameFiles})
