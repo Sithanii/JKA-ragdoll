@@ -710,7 +710,7 @@ void G_InitCvars( void ) {
 	g_saber2_color = gi.cvar( "g_saber2_color", "yellow", CVAR_ARCHIVE|CVAR_SAVEGAME|CVAR_NORESTART );
 	g_saberDarkSideSaberColor = gi.cvar( "g_saberDarkSideSaberColor", "0", CVAR_ARCHIVE );	//when you turn evil, it turns your saber red!
 
-	g_broadsword = gi.cvar( "broadsword", "1", 0);
+	g_broadsword = gi.cvar( "broadsword", "0", 0);
 
 	g_allowBunnyhopping = gi.cvar( "g_allowBunnyhopping", "0", 0 );
 
@@ -1075,6 +1075,7 @@ Runs thinking code for this frame if necessary
 */
 void G_RunThink (gentity_t *ent)
 {
+
 	if ( (ent->nextthink <= 0) || (ent->nextthink > level.time) )
 	{
 		goto runicarus;
@@ -1109,6 +1110,22 @@ G_Animate
 
 static void G_Animate ( gentity_t *self )
 {
+
+	if (self->physRagdoll) {
+		// Ca³kowicie zatrzymaj animacje
+		self->client->ps.torsoAnim = -1;
+		self->client->ps.legsAnim = -1;
+		self->nextthink = 0;  // Zatrzymaj myœlenie AI
+		self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;  // U¿ywamy znanej flagi
+
+		// Spróbuj wymusiæ zatrzymanie animacji
+		if (self->client) {
+			self->client->ps.saberMove = 0;
+			self->client->ps.saberBlocked = 0;
+		}
+		return;
+	}
+
 	if ( self->s.eFlags & EF_SHADER_ANIM )
 	{
 		return;
@@ -2088,11 +2105,13 @@ void G_RunFrame( int levelTime ) {
 
 		G_RunThink( ent );	// be aware that ent may be free after returning from here, at least one func frees them
 
-		for (int i = 0; i < MAX_GENTITIES; i++) {
-			gentity_t* ent = &g_entities[i];
-			if (ent->inuse && ent->physRagdoll) {
-				ent->physRagdoll->Update((float)(levelTime - level.previousTime) * 0.001f);
-			}
+		if (ent->inuse && ent->physRagdoll && ent->client) {
+			// Blokuj animacje
+			ent->client->ps.legsAnimTimer = -1;
+			ent->client->ps.torsoAnimTimer = -1;
+			ent->client->ps.pm_type = PM_FREEZE;
+			// Wyczyœæ wektor prêdkoœci
+			VectorClear(ent->client->ps.velocity);
 		}
 
 		ClearNPCGlobals();			//	but these 2 funcs are ok
@@ -2112,6 +2131,15 @@ void G_RunFrame( int levelTime ) {
 	//DEBUG STUFF
 	NAV::ShowDebugInfo(ent->currentOrigin, ent->waypoint);
 	NPC_ShowDebugInfo();
+
+	for (int i = 0; i < MAX_GENTITIES; i++) {
+		gentity_t* ragdollEnt = &g_entities[i];  // u¿ywamy innej nazwy zmiennej
+		if (ragdollEnt->inuse && ragdollEnt->physRagdoll && ragdollEnt->client) {
+			ragdollEnt->client->ps.pm_type = PM_DEAD;
+			ragdollEnt->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
+			ragdollEnt->physRagdoll->Update((float)(levelTime - level.previousTime) * 0.001f);
+		}
+	}
 
 	G_DynamicMusicUpdate();
 
