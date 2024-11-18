@@ -3624,7 +3624,7 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int 
 	int			cliff_fall = 0;
 
 	if (g_useRagdoll->integer) {
-		// Wy³¹cz systemy JA
+		// Deactivating all JK physics
 		self->client->ps.pm_type = PM_DEAD;
 		self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
 		self->client->ps.legsAnimTimer = 0;

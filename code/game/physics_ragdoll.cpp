@@ -27,7 +27,6 @@ void SimpleRagdoll::Initialize() {
     dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
     dynamicsWorld->setGravity(btVector3(0, 0, -980.0f));
 
-    // Inicjalizacja kości z właściwymi nazwami z JA
     const char* boneNames[] = {
         "pelvis", "lower_lumbar", "upper_lumbar", "thoracic", "cervical",
         "cranium", "rclavical", "rhumerus", "rhumerusX", "rradius",
@@ -37,7 +36,7 @@ void SimpleRagdoll::Initialize() {
         "ltibia", "ltalus", "ltail"
     };
 
-    // Inicjalizacja każdej kości
+    // Initialize all bones
     for (const char* boneName : boneNames) {
         InitializeBone(boneName);
     }
@@ -54,7 +53,7 @@ void SimpleRagdoll::InitializeBone(const char* boneName) {
     bone.boneIndex = boneIndex;
     bone.isActive = qfalse;
 
-    // Masy dostosowane do realistycznej fizyki
+    // Masses
     if (strcmp(boneName, "pelvis") == 0) {
         bone.mass = 12.0f;
     }
@@ -74,7 +73,7 @@ void SimpleRagdoll::InitializeBone(const char* boneName) {
         bone.mass = 3.0f;
     }
 
-    // Pobierz pozycję kości
+    // Bones position
     mdxaBone_t boneMatrix;
     vec3_t angles;
     VectorSet(angles, 0, owner->client->ps.viewangles[YAW], 0);
@@ -99,7 +98,7 @@ void SimpleRagdoll::InitializeBone(const char* boneName) {
     VectorCopy(bone.position, bone.lastPosition);
     VectorClear(bone.velocity);
 
-    // Kształty kolizji dostosowane do anatomii
+    // Collision types
     if (strcmp(boneName, "pelvis") == 0) {
         bone.collisionShape = new btCapsuleShape(6.0f, 8.0f);
     }
@@ -126,14 +125,13 @@ void SimpleRagdoll::InitializeBone(const char* boneName) {
     btRigidBody::btRigidBodyConstructionInfo rbInfo(bone.mass, motionState, bone.collisionShape, localInertia);
     bone.rigidBody = new btRigidBody(rbInfo);
 
-    // Parametry fizyczne dla realistycznego zachowania
     bone.rigidBody->setDamping(0.3f, 0.5f);
     bone.rigidBody->setFriction(0.8f);
     bone.rigidBody->setRestitution(0.3f);
     bone.rigidBody->setLinearFactor(btVector3(1, 1, 1));
     bone.rigidBody->setAngularFactor(btVector3(0.8f, 0.8f, 0.8f));
 
-    // Dodaj podłoże
+    // Ground
     btCollisionShape* groundShape = new btBoxShape(btVector3(1000, 1000, 10));
     btDefaultMotionState* groundMotionState = new btDefaultMotionState(
         btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, -100)));
@@ -160,7 +158,6 @@ void SimpleRagdoll::InitializeBone(const char* boneName) {
 void SimpleRagdoll::DisableJAAnimations() {
     if (!owner || !owner->client) return;
 
-    // Wyłącz systemy animacji JA
     owner->client->ps.legsAnim = 0;
     owner->client->ps.torsoAnim = 0;
     owner->client->ps.pm_type = PM_DEAD;
@@ -312,7 +309,7 @@ void SimpleRagdoll::ApplyDamageForce(vec3_t direction, float damage, int mod) {
 void SimpleRagdoll::Enable(vec3_t force) {
     if (isEnabled) return;
 
-    // Wyłącz animacje kości
+    // Turn off bones anims
     gi.G2API_SetBoneAngles(&owner->ghoul2[owner->playerModel], "upper_lumbar", vec3_origin,
         BONE_ANGLES_POSTMULT, POSITIVE_X, NEGATIVE_Y, NEGATIVE_Z, NULL, 100, level.time);
     gi.G2API_SetBoneAngles(&owner->ghoul2[owner->playerModel], "lower_lumbar", vec3_origin,
@@ -326,11 +323,10 @@ void SimpleRagdoll::Enable(vec3_t force) {
 
     owner->client->ps.pm_type = PM_DEAD;
     owner->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
-    owner->contents = CONTENTS_CORPSE;  // Zmiana typu kolizji
+    owner->contents = CONTENTS_CORPSE;
     owner->clipmask = MASK_DEADSOLID;
     owner->takedamage = qfalse;
 
-    owner->clipmask = 0;
     owner->client->ps.stats[STAT_HEALTH] = 0;
     owner->client->ps.eFlags &= ~(EF_TELEPORT_BIT);
     owner->client->ps.pm_flags &= ~PMF_ALL_TIMES;
@@ -340,11 +336,11 @@ void SimpleRagdoll::Enable(vec3_t force) {
 
     for (auto& bone : bones) {
         if (bone.rigidBody) {
-            // Dodaj callback kolizji
+            // Collision callback
             bone.rigidBody->setCollisionFlags(bone.rigidBody->getCollisionFlags() |
                 btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
 
-            // Ustaw minimalną wysokość
+            // Minimal height
             btTransform trans = bone.rigidBody->getWorldTransform();
             btVector3 origin = trans.getOrigin();
             if (origin.getZ() < -64.0f) {
@@ -355,11 +351,11 @@ void SimpleRagdoll::Enable(vec3_t force) {
         }
     }
 
-    // Wyłącz root motion
+    // Turn of root motion
     gi.G2API_SetBoneAnim(&owner->ghoul2[0], "model_root", 0, 1,
         BONE_ANIM_OVERRIDE_FREEZE, 0.0f, level.time, -1, 0);
 
-    // Zamroź animację
+    // Freeze anims
     float currentFrame;
     int startFrame, endFrame;
     int flags;
@@ -455,13 +451,13 @@ void SimpleRagdoll::Update(float deltaTime) {
         btTransform trans;
         bone.rigidBody->getMotionState()->getWorldTransform(trans);
 
-        // Aktualizacja pozycji
+        // Position
         const btVector3& pos = trans.getOrigin();
         bone.position[0] = pos.getX();
         bone.position[1] = pos.getY();
         bone.position[2] = pos.getZ();
 
-        // Aktualizacja kątów
+        // Angles
         btMatrix3x3 rot = trans.getBasis();
         btScalar yaw, pitch, roll;
         rot.getEulerYPR(yaw, pitch, roll);
@@ -484,7 +480,7 @@ void SimpleRagdoll::Update(float deltaTime) {
             level.time
         );
 
-        // Aktualizacja prędkości
+        // Speed
         const btVector3& vel = bone.rigidBody->getLinearVelocity();
         bone.velocity[0] = vel.getX();
         bone.velocity[1] = vel.getY();

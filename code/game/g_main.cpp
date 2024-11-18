@@ -1112,13 +1112,12 @@ static void G_Animate ( gentity_t *self )
 {
 
 	if (self->physRagdoll) {
-		// Ca³kowicie zatrzymaj animacje
+		// Turn off anims
 		self->client->ps.torsoAnim = -1;
 		self->client->ps.legsAnim = -1;
-		self->nextthink = 0;  // Zatrzymaj myœlenie AI
-		self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;  // U¿ywamy znanej flagi
+		self->nextthink = 0;
+		self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
 
-		// Spróbuj wymusiæ zatrzymanie animacji
 		if (self->client) {
 			self->client->ps.saberMove = 0;
 			self->client->ps.saberBlocked = 0;
@@ -2027,7 +2026,7 @@ void G_RunFrame(int levelTime) {
 			continue;
 			if (ent->client && ent->client->isRagging && ent->physRagdoll)
 			{
-				float deltaTime = FRAMETIME * 0.001f; // konwersja na sekundy
+				float deltaTime = FRAMETIME * 0.001f;
 				ent->physRagdoll->Update(deltaTime);
 			}
 		}
@@ -2038,7 +2037,7 @@ void G_RunFrame(int levelTime) {
 			continue;
 			if (ent->client && ent->client->isRagging && ent->physRagdoll)
 			{
-				float deltaTime = FRAMETIME * 0.001f; // konwersja na sekundy
+				float deltaTime = FRAMETIME * 0.001f;
 				ent->physRagdoll->Update(deltaTime);
 			}
 		}
@@ -2150,7 +2149,7 @@ void G_RunFrame(int levelTime) {
 			if (!ent->inuse || !ent->physRagdoll)
 				continue;
 
-			ent->client->noRagTime = -1; // wy³¹cza broadsword
+			ent->client->noRagTime = -1; // turns off broadsword
 			ent->client->ps.pm_type = PM_DEAD;
 			PM_SetTorsoAnimTimer(ent, &ent->client->ps.torsoAnimTimer, 0);
 			PM_SetLegsAnimTimer(ent, &ent->client->ps.legsAnimTimer, 0);
@@ -2167,7 +2166,7 @@ void G_RunFrame(int levelTime) {
 			float deltaTime = (float)(levelTime - level.previousTime) * 0.001f;
 			ent->physRagdoll->Update(deltaTime);
 
-			// Kolizja z pod³o¿em
+			// Ground collision
 			trace_t trace;
 			vec3_t start, end;
 			VectorCopy(ent->currentOrigin, start);
@@ -2220,12 +2219,12 @@ void G_LoadSave_ReadMiscData()
 {
 	ojk::SavedGameHelper saved_game(::gi.saved_game);
 
-	// Istniej¹cy kod zapisu
+	// Write code
 	saved_game.read_chunk<int32_t>(
 		INT_ID('L', 'C', 'K', 'D'),
 		::player_locked);
 
-	// Czyszczenie fizyki
+	// Cleaning physics
 	if (dynamicsWorld) {
 		delete dynamicsWorld;
 		dynamicsWorld = nullptr;
