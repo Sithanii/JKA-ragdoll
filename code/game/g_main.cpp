@@ -1928,10 +1928,10 @@ int navTime = 0;
 #endif//	AI_TIMERS
 
 
-void G_RunFrame( int levelTime ) {
+void G_RunFrame(int levelTime) {
 	int			i;
-	gentity_t	*ent;
-	int			ents_inuse=0; // someone's gonna be pissed I put this here...
+	gentity_t* ent;
+	int			ents_inuse = 0; // someone's gonna be pissed I put this here...
 #if	AI_TIMERS
 	AITime = 0;
 	navTime = 0;
@@ -1950,7 +1950,7 @@ void G_RunFrame( int levelTime ) {
 
 	if (player && gi.WE_IsShaking(player->currentOrigin))
 	{
- 	  	CGCam_Shake(0.45f, 100);
+		CGCam_Shake(0.45f, 100);
 	}
 
 
@@ -1964,27 +1964,27 @@ void G_RunFrame( int levelTime ) {
 
 	//Run the frame for all entities
 //	for ( i = 0, ent = &g_entities[0]; i < globals.num_entities ; i++, ent++)
-	for ( i = 0; i < globals.num_entities ; i++)
+	for (i = 0; i < globals.num_entities; i++)
 	{
-//		if ( !ent->inuse )
-//			continue;
+		//		if ( !ent->inuse )
+		//			continue;
 
-		if(!PInUse(i))
+		if (!PInUse(i))
 			continue;
 		ents_inuse++;
 		ent = &g_entities[i];
 
 		// clear events that are too old
-		if ( level.time - ent->eventTime > EVENT_VALID_MSEC ) {
-			if ( ent->s.event ) {
+		if (level.time - ent->eventTime > EVENT_VALID_MSEC) {
+			if (ent->s.event) {
 				ent->s.event = 0;	// &= EV_EVENT_BITS;
-				if ( ent->client ) {
+				if (ent->client) {
 					ent->client->ps.externalEvent = 0;
 				}
 			}
-			if ( ent->freeAfterEvent ) {
+			if (ent->freeAfterEvent) {
 				// tempEntities or dropped items completely go away after their event
-				G_FreeEntity( ent );
+				G_FreeEntity(ent);
 				continue;
 			}
 			/*	// This is never set to true anywhere. Killing the field (BTO - VV)
@@ -1997,38 +1997,33 @@ void G_RunFrame( int levelTime ) {
 		}
 
 		// temporary entities don't think
-		if ( ent->freeAfterEvent )
+		if (ent->freeAfterEvent)
 			continue;
-		if (ent->client && ent->client->isRagging && ent->physRagdoll)
-		{
-			float deltaTime = FRAMETIME * 0.001f; // konwersja na sekundy
-			ent->physRagdoll->Update(deltaTime);
-		}
 
 		G_CheckTasksCompleted(ent);
 
-		G_Roff( ent );
+		G_Roff(ent);
 
-		if( !ent->client )
+		if (!ent->client)
 		{
-			if ( !(ent->svFlags & SVF_SELF_ANIMATING) )
+			if (!(ent->svFlags & SVF_SELF_ANIMATING))
 			{//FIXME: make sure this is done only for models with frames?
 				//Or just flag as animating?
-				if ( ent->s.eFlags & EF_ANIM_ONCE )
+				if (ent->s.eFlags & EF_ANIM_ONCE)
 				{
 					ent->s.frame++;
 				}
-				else if ( !(ent->s.eFlags & EF_ANIM_ALLFAST) )
+				else if (!(ent->s.eFlags & EF_ANIM_ALLFAST))
 				{
-					G_Animate( ent );
+					G_Animate(ent);
 				}
 			}
 		}
-		G_CheckSpecialPersistentEvents( ent );
+		G_CheckSpecialPersistentEvents(ent);
 
-		if ( ent->s.eType == ET_MISSILE )
+		if (ent->s.eType == ET_MISSILE)
 		{
-			G_RunMissile( ent );
+			G_RunMissile(ent);
 			continue;
 			if (ent->client && ent->client->isRagging && ent->physRagdoll)
 			{
@@ -2037,9 +2032,9 @@ void G_RunFrame( int levelTime ) {
 			}
 		}
 
-		if ( ent->s.eType == ET_ITEM )
+		if (ent->s.eType == ET_ITEM)
 		{
-			G_RunItem( ent );
+			G_RunItem(ent);
 			continue;
 			if (ent->client && ent->client->isRagging && ent->physRagdoll)
 			{
@@ -2048,71 +2043,58 @@ void G_RunFrame( int levelTime ) {
 			}
 		}
 
-		if ( ent->s.eType == ET_MOVER )
+		if (ent->s.eType == ET_MOVER)
 		{
 			// FIXME string comparison in per-frame thinks wut???
-			if ( ent->model && Q_stricmp( "models/test/mikeg/tie_fighter.md3", ent->model ) == 0 )
+			if (ent->model && Q_stricmp("models/test/mikeg/tie_fighter.md3", ent->model) == 0)
 			{
-				TieFighterThink( ent );
+				TieFighterThink(ent);
 			}
-			G_RunMover( ent );
+			G_RunMover(ent);
 			continue;
-			if (ent->client && ent->client->isRagging && ent->physRagdoll)
-			{
-				float deltaTime = FRAMETIME * 0.001f; // konwersja na sekundy
-				ent->physRagdoll->Update(deltaTime);
-			}
 		}
 
 		//The player
-		if ( i == 0 )
+		if (i == 0)
 		{
 			// decay batteries if the goggles are active
-			if ( cg.zoomMode == 1 && ent->client->ps.batteryCharge > 0 )
+			if (cg.zoomMode == 1 && ent->client->ps.batteryCharge > 0)
 			{
 				ent->client->ps.batteryCharge--;
 			}
-			else if ( cg.zoomMode == 3 && ent->client->ps.batteryCharge > 0 )
+			else if (cg.zoomMode == 3 && ent->client->ps.batteryCharge > 0)
 			{
 				ent->client->ps.batteryCharge -= 2;
 
-				if ( ent->client->ps.batteryCharge < 0 )
+				if (ent->client->ps.batteryCharge < 0)
 				{
 					ent->client->ps.batteryCharge = 0;
 				}
 			}
 
-			G_CheckEndLevelTimers( ent );
+			G_CheckEndLevelTimers(ent);
 			//Recalculate the nearest waypoint for the coming NPC updates
-			NAV::GetNearestNode( ent );
+			NAV::GetNearestNode(ent);
 
 
-			if( ent->m_iIcarusID != IIcarusInterface::ICARUS_INVALID && !stop_icarus )
+			if (ent->m_iIcarusID != IIcarusInterface::ICARUS_INVALID && !stop_icarus)
 			{
-				IIcarusInterface::GetIcarus()->Update( ent->m_iIcarusID );
+				IIcarusInterface::GetIcarus()->Update(ent->m_iIcarusID);
 			}
 			//dead
-			if ( ent->health <= 0 )
+			if (ent->health <= 0)
 			{
-				if ( ent->client->ps.groundEntityNum != ENTITYNUM_NONE )
+				if (ent->client->ps.groundEntityNum != ENTITYNUM_NONE)
 				{//on the ground
-					pitch_roll_for_slope( ent );
+					pitch_roll_for_slope(ent);
 				}
 			}
 
 			continue;	// players are ucmd driven
 		}
 
-		G_RunThink( ent );	// be aware that ent may be free after returning from here, at least one func frees them
+		G_RunThink(ent);	// be aware that ent may be free after returning from here, at least one func frees them
 
-		if (ent->inuse && ent->physRagdoll && ent->client) {
-			// Blokuj animacje
-			ent->client->ps.legsAnimTimer = -1;
-			ent->client->ps.torsoAnimTimer = -1;
-			ent->client->ps.pm_type = PM_FREEZE;
-			// Wyczyœæ wektor prêdkoœci
-			VectorClear(ent->client->ps.velocity);
-		}
 
 		ClearNPCGlobals();			//	but these 2 funcs are ok
 		//UpdateTeamCounters( ent );	//	   to call anyway on a freed ent.
@@ -2120,66 +2102,92 @@ void G_RunFrame( int levelTime ) {
 
 	// perform final fixups on the player
 	ent = &g_entities[0];
-	if ( ent->inuse )
+	if (ent->inuse)
 	{
-		ClientEndFrame( ent );
+		ClientEndFrame(ent);
 	}
-	if( g_numEntities->integer )
+	if (g_numEntities->integer)
 	{
-		gi.Printf( S_COLOR_WHITE"Number of Entities in use : %d\n", ents_inuse );
+		gi.Printf(S_COLOR_WHITE"Number of Entities in use : %d\n", ents_inuse);
 	}
 	//DEBUG STUFF
 	NAV::ShowDebugInfo(ent->currentOrigin, ent->waypoint);
 	NPC_ShowDebugInfo();
 
-	for (int i = 0; i < MAX_GENTITIES; i++) {
-		gentity_t* ragdollEnt = &g_entities[i];  // u¿ywamy innej nazwy zmiennej
-		if (ragdollEnt->inuse && ragdollEnt->physRagdoll && ragdollEnt->client) {
-			ragdollEnt->client->ps.pm_type = PM_DEAD;
-			ragdollEnt->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
-			ragdollEnt->physRagdoll->Update((float)(levelTime - level.previousTime) * 0.001f);
-		}
-	}
-
 	G_DynamicMusicUpdate();
 
 #if	AI_TIMERS
 	AITime -= navTime;
-	if ( AITime > 20 )
+	if (AITime > 20)
 	{
-		gi.Printf( S_COLOR_RED"ERROR: total AI time: %d\n", AITime );
+		gi.Printf(S_COLOR_RED"ERROR: total AI time: %d\n", AITime);
 	}
-	else if ( AITime > 10 )
+	else if (AITime > 10)
 	{
-		gi.Printf( S_COLOR_YELLOW"WARNING: total AI time: %d\n", AITime );
+		gi.Printf(S_COLOR_YELLOW"WARNING: total AI time: %d\n", AITime);
 	}
-	else if ( AITime > 2 )
+	else if (AITime > 2)
 	{
-		gi.Printf( S_COLOR_GREEN"total AI time: %d\n", AITime );
+		gi.Printf(S_COLOR_GREEN"total AI time: %d\n", AITime);
 	}
-	if ( navTime > 20 )
+	if (navTime > 20)
 	{
-		gi.Printf( S_COLOR_RED"ERROR: total nav time: %d\n", navTime );
+		gi.Printf(S_COLOR_RED"ERROR: total nav time: %d\n", navTime);
 	}
-	else if ( navTime > 10 )
+	else if (navTime > 10)
 	{
-		gi.Printf( S_COLOR_YELLOW"WARNING: total nav time: %d\n", navTime );
+		gi.Printf(S_COLOR_YELLOW"WARNING: total nav time: %d\n", navTime);
 	}
-	else if ( navTime > 2 )
+	else if (navTime > 2)
 	{
-		gi.Printf( S_COLOR_GREEN"total nav time: %d\n", navTime );
+		gi.Printf(S_COLOR_GREEN"total nav time: %d\n", navTime);
 	}
 #endif//	AI_TIMERS
 
-extern int delayedShutDown;
-	if ( g_delayedShutdown->integer && delayedShutDown != 0 && delayedShutDown < level.time )
+	if (g_useRagdoll->integer) {
+		for (int i = 0; i < MAX_GENTITIES; i++) {
+			gentity_t* ent = &g_entities[i];
+			if (!ent->inuse || !ent->physRagdoll)
+				continue;
+
+			ent->client->noRagTime = -1; // wy³¹cza broadsword
+			ent->client->ps.pm_type = PM_DEAD;
+			PM_SetTorsoAnimTimer(ent, &ent->client->ps.torsoAnimTimer, 0);
+			PM_SetLegsAnimTimer(ent, &ent->client->ps.legsAnimTimer, 0);
+			ent->client->ps.legsAnim = 0;
+			ent->client->ps.torsoAnim = 0;
+
+			if (ent->client) {
+				ent->client->ps.pm_type = PM_DEAD;
+				ent->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
+				ent->client->ps.eFlags |= EF_RAG;
+				VectorCopy(ent->currentOrigin, ent->client->ps.origin);
+			}
+
+			float deltaTime = (float)(levelTime - level.previousTime) * 0.001f;
+			ent->physRagdoll->Update(deltaTime);
+
+			// Kolizja z pod³o¿em
+			trace_t trace;
+			vec3_t start, end;
+			VectorCopy(ent->currentOrigin, start);
+			VectorCopy(ent->currentOrigin, end);
+			end[2] -= 64.0f;
+
+			gi.trace(&trace, start, ent->mins, ent->maxs, end,
+				ent->s.number, MASK_SOLID, (EG2_Collision)0, 0);
+		}
+	}
+
+	extern int delayedShutDown;
+	if (g_delayedShutdown->integer && delayedShutDown != 0 && delayedShutDown < level.time)
 	{
 		assert(0);
-		G_Error( "Game Errors. Scroll up the console to read them.\n" );
+		G_Error("Game Errors. Scroll up the console to read them.\n");
 	}
 
 #ifdef _DEBUG
-	if(!(level.framenum&0xff))
+	if (!(level.framenum & 0xff))
 	{
 		ValidateInUseBits();
 	}

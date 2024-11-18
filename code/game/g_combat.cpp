@@ -35,6 +35,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "g_navigator.h"
 #include "physics_ragdoll.h"
 #include "bg_public.h"
+#include "g_shared.h"
 
 #define TURN_OFF			0x00000100
 #define EF_RAG					(1<<6)		//ragdoll him even if he's alive
@@ -3622,6 +3623,42 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int 
 	qboolean	holdingSaber = qfalse;
 	int			cliff_fall = 0;
 
+	if (g_useRagdoll->integer) {
+		// Wy³¹cz systemy JA
+		self->client->ps.pm_type = PM_DEAD;
+		self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
+		self->client->ps.legsAnimTimer = 0;
+		self->client->ps.torsoAnimTimer = 0;
+		self->client->ps.legsAnim = 0;
+		self->client->ps.torsoAnim = 0;
+		self->client->ps.weaponTime = 0;
+		self->client->ps.forcePowersActive = 0;
+		self->takedamage = qfalse;
+		self->contents = 0;
+
+		if (!self->physRagdoll) {
+			self->physRagdoll = new SimpleRagdoll(self);
+			vec3_t force;
+			if (inflictor && inflictor != self) {
+				vec3_t dir;
+				VectorSubtract(self->currentOrigin, inflictor->currentOrigin, dir);
+				VectorNormalize(dir);
+				VectorScale(dir, damage * 20.0f, force);
+			}
+			else {
+				force[0] = Q_flrand(-200.0f, 200.0f);
+				force[1] = Q_flrand(-200.0f, 200.0f);
+				force[2] = 300.0f + Q_flrand(0.0f, 200.0f);
+			}
+
+			self->client->noRagTime = -1;
+			self->client->isRagging = qfalse;
+
+			self->physRagdoll->Enable(force);
+		}
+		return;
+	}
+
 	//FIXME: somehow people are sometimes not completely dying???
 	if (self->client->ps.pm_type == PM_DEAD && (meansOfDeath != MOD_SNIPER || (self->flags & FL_DISINTEGRATED)))
 	{//do dismemberment/twitching
@@ -4627,65 +4664,6 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int 
 	self->client->respawnTime = level.time + 2000;//self->client->ps.legsAnimTimer;
 
 	//rww - RAGDOLL_BEGIN
-
-	if (g_useRagdoll->integer)
-	{
-		if (!self->physRagdoll)
-		{
-			// Ca³kowicie wy³¹cz kontrolê pozycji
-			self->s.pos.trType = TR_GRAVITY;
-			self->s.pos.trTime = level.time;
-			VectorClear(self->s.pos.trDelta);
-			VectorClear(self->s.pos.trBase);
-
-			// Wy³¹cz wszelkie ograniczenia ruchu
-			self->s.eFlags |= EF_RAG; // W³¹cz flagê ragdoll
-
-			// Wy³¹cz kompletnie kolizje
-			self->contents = 0;
-			self->clipmask = 0;
-			self->takedamage = qfalse;
-
-			// Wy³¹cz ca³kowicie animacje
-			self->client->ps.pm_type = PM_FREEZE;
-			self->client->ps.pm_flags &= ~PMF_ALL_TIMES;
-			self->client->ps.pm_time = 0;
-
-			// Wyczyœæ wszystkie timery animacji
-			self->client->ps.legsAnimTimer = -1;
-			self->client->ps.torsoAnimTimer = -1;
-
-			// Wyzeruj wszystkie prêdkoœci
-			VectorClear(self->client->ps.velocity);
-			VectorClear(self->client->ps.moveDir);
-			self->client->ps.speed = 0;
-
-			// Wy³¹cz system rootMotion
-			self->client->ps.weaponTime = 0;
-
-			// Zresetuj pozycjê podstawow¹
-			VectorCopy(self->currentOrigin, self->client->ps.origin);
-
-			// Inicjalizacja ragdolla
-			self->physRagdoll = new SimpleRagdoll(self);
-			Com_Printf("Ragdoll enabled for player\n");
-		}
-
-		vec3_t force;
-		if (inflictor && inflictor != self)
-		{
-			vec3_t dir;
-			VectorSubtract(self->currentOrigin, inflictor->currentOrigin, dir);
-			VectorNormalize(dir);
-			VectorScale(dir, damage * 10.0f, force);
-		}
-		else
-		{
-			VectorSet(force, 0, 0, -100);
-		}
-
-		self->physRagdoll->Enable(force);
-	}
 
 	if (gi.Cvar_VariableIntegerValue("broadsword"))
 	{

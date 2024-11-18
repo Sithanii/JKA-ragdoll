@@ -87,6 +87,8 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 #define VALIDSTRING( a )	( ( a != NULL ) && ( a[0] != '\0' ) )
 
+#define EF_RAG              (1<<22)    // dla ragdoll physics
+
 //animations
 class animFileSet_t
 {
