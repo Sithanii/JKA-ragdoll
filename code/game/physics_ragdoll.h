@@ -12,6 +12,9 @@ enum BoneOrientation {
     BONE_ORIENT_Z = 2
 };
 
+class CRagDollParams;
+class CGameRagDollUpdateParams;
+
 class SimpleRagdoll {
 public:
     SimpleRagdoll(gentity_t* ent);
@@ -28,8 +31,8 @@ private:
     void DisableJAAnimations();
     void CreateBoneConstraints();
     void CreateConstraint(const char* parentName, const char* childName, float strength);
-    void HandleCollisions();
-    void UpdateCollisions();
+    void CheckBoltPoints();
+    void ProcessEffectorCollision(const trace_t& tr, int boneIndex);
 
     struct Bone {
         char boneName[MAX_QPATH];
@@ -54,6 +57,9 @@ private:
     btBroadphaseInterface* overlappingPairCache;
     btSequentialImpulseConstraintSolver* solver;
     btDiscreteDynamicsWorld* dynamicsWorld;
+
+    vec3_t effectorTotal;
+    qboolean hasEffectorData;
 };
 
 #endif
