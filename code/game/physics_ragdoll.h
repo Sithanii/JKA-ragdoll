@@ -6,6 +6,8 @@
 #include "../../build/bullet3-master/src/btBulletDynamicsCommon.h"
 #include <vector>
 
+int G_RagAnimForPositioning(gentity_t* ent);
+
 enum BoneOrientation {
     BONE_ORIENT_X = 0,
     BONE_ORIENT_Y = 1,
@@ -28,7 +30,6 @@ public:
 private:
     void Initialize();
     void InitializeBone(const char* boneName);
-    void DisableJAAnimations();
     void CreateBoneConstraints();
     void CreateConstraint(const char* parentName, const char* childName, float strength);
     void CheckBoltPoints();
@@ -49,6 +50,7 @@ private:
     gentity_t* owner;
     bool isEnabled;
     float gravity;
+    vec3_t ownerAngles;
     std::vector<Bone> bones;
     btRigidBody* groundBody;
 

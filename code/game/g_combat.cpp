@@ -3624,36 +3624,36 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int 
 	int			cliff_fall = 0;
 
 	if (g_useRagdoll->integer) {
-		// Deactivating all JK physics
-		self->client->ps.pm_type = PM_DEAD;
-		self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
-		self->client->ps.legsAnimTimer = 0;
-		self->client->ps.torsoAnimTimer = 0;
-		self->client->ps.legsAnim = 0;
-		self->client->ps.torsoAnim = 0;
-		self->client->ps.weaponTime = 0;
-		self->client->ps.forcePowersActive = 0;
-		self->takedamage = qfalse;
-		self->contents = 0;
-
 		if (!self->physRagdoll) {
+			// Wy³¹cz wszystkie oryginalne flagi fizyki
+			self->s.eType = ET_GENERAL;
+			self->s.eFlags |= EF_RAG;
+			self->contents = 0;
+			self->clipmask = CONTENTS_SOLID;
+			self->client->ps.pm_type = PM_DEAD;
+			self->client->ps.pm_flags &= ~PMF_TIME_KNOCKBACK;
+
+			// Ca³kowite wyzerowanie animacji
+			self->client->ps.legsAnim = G_RagAnimForPositioning(self);
+			self->client->ps.legsAnim = 0;
+			self->client->ps.torsoAnim = 0;
+			self->client->ps.legsAnimTimer = 0;
+			self->client->ps.torsoAnimTimer = 0;
+			self->client->isRagging = qtrue;
+
+			// Inicjalizacja ragdolla z now¹ pozycj¹ i si³¹
 			self->physRagdoll = new SimpleRagdoll(self);
 			vec3_t force;
 			if (inflictor && inflictor != self) {
-				vec3_t dir;
-				VectorSubtract(self->currentOrigin, inflictor->currentOrigin, dir);
-				VectorNormalize(dir);
-				VectorScale(dir, damage * 20.0f, force);
+				VectorSubtract(self->currentOrigin, inflictor->currentOrigin, force);
+				VectorNormalize(force);
+				VectorScale(force, damage * 20.0f, force);
 			}
 			else {
 				force[0] = Q_flrand(-200.0f, 200.0f);
 				force[1] = Q_flrand(-200.0f, 200.0f);
 				force[2] = 300.0f + Q_flrand(0.0f, 200.0f);
 			}
-
-			self->client->noRagTime = -1;
-			self->client->isRagging = qfalse;
-
 			self->physRagdoll->Enable(force);
 		}
 		return;

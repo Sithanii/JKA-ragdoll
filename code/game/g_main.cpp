@@ -245,7 +245,9 @@ extern void CP_FindCombatPointWaypoints( void );
 extern qboolean InFront( vec3_t spot, vec3_t from, vec3_t fromAngles, float threshHold = 0.0f );
 
 void G_RunFrame (int levelTime);
-void PrintEntClassname( int gentNum );
+void PrintEntClassname(int gentNum) {
+	Com_Printf("%d: %s in snapshot\n", gentNum, g_entities[gentNum].classname);
+}
 void ClearNPCGlobals( void );
 extern void AI_UpdateGroups( void );
 
