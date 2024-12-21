@@ -3625,37 +3625,33 @@ void player_die(gentity_t* self, gentity_t* inflictor, gentity_t* attacker, int 
 
 	if (g_useRagdoll->integer) {
 		if (!self->physRagdoll) {
-			// Wy³¹cz wszystkie oryginalne flagi fizyki
-			self->s.eType = ET_GENERAL;
-			self->s.eFlags |= EF_RAG;
-			self->contents = 0;
-			self->clipmask = CONTENTS_SOLID;
-			self->client->ps.pm_type = PM_DEAD;
-			self->client->ps.pm_flags &= ~PMF_TIME_KNOCKBACK;
-
-			// Ca³kowite wyzerowanie animacji
-			self->client->ps.legsAnim = G_RagAnimForPositioning(self);
-			self->client->ps.legsAnim = 0;
-			self->client->ps.torsoAnim = 0;
-			self->client->ps.legsAnimTimer = 0;
-			self->client->ps.torsoAnimTimer = 0;
-			self->client->isRagging = qtrue;
-
-			// Inicjalizacja ragdolla z now¹ pozycj¹ i si³¹
 			self->physRagdoll = new SimpleRagdoll(self);
-			vec3_t force;
-			if (inflictor && inflictor != self) {
-				VectorSubtract(self->currentOrigin, inflictor->currentOrigin, force);
-				VectorNormalize(force);
-				VectorScale(force, damage * 20.0f, force);
-			}
-			else {
-				force[0] = Q_flrand(-200.0f, 200.0f);
-				force[1] = Q_flrand(-200.0f, 200.0f);
-				force[2] = 300.0f + Q_flrand(0.0f, 200.0f);
-			}
-			self->physRagdoll->Enable(force);
 		}
+
+		// Odrzuæ broñ
+		TossClientItems(self);
+
+		// Ustaw jako martwego, ale zachowuj¹c cia³o
+		self->client->ps.stats[STAT_HEALTH] = 0;
+		self->health = 0;
+		self->client->ps.pm_type = PM_DEAD;
+
+		// Zmieñ typ zawartoœci na CORPSE aby umo¿liwiæ interakcje
+		self->contents = CONTENTS_CORPSE;
+		self->clipmask = MASK_DEADSOLID;
+
+		vec3_t force;
+		if (inflictor && inflictor != self) {
+			VectorSubtract(self->currentOrigin, inflictor->currentOrigin, force);
+			VectorNormalize(force);
+			VectorScale(force, damage * 20.0f, force);
+		}
+		else {
+			force[0] = Q_flrand(-200.0f, 200.0f);
+			force[1] = Q_flrand(-200.0f, 200.0f);
+			force[2] = 300.0f + Q_flrand(0.0f, 200.0f);
+		}
+		self->physRagdoll->Enable(force);
 		return;
 	}
 

@@ -22,6 +22,7 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "g_local.h"
+#include "physics_ragdoll.h"
 #include "g_functions.h"
 #include "Q3_Interface.h"
 #include "g_nav.h"
@@ -31,8 +32,6 @@ along with this program; if not, see <http://www.gnu.org/licenses/>.
 #include "anims.h"
 #include "objectives.h"
 #include "../cgame/cg_local.h"	// yeah I know this is naughty, but we're shipping soon...
-#include "g_local.h"
-#include "physics_ragdoll.h"
 #include "../../build/bullet3-master/src/btBulletDynamicsCommon.h"
 
 //rww - RAGDOLL_BEGIN
@@ -1114,16 +1113,6 @@ static void G_Animate ( gentity_t *self )
 {
 
 	if (self->physRagdoll) {
-		// Turn off anims
-		self->client->ps.torsoAnim = -1;
-		self->client->ps.legsAnim = -1;
-		self->nextthink = 0;
-		self->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
-
-		if (self->client) {
-			self->client->ps.saberMove = 0;
-			self->client->ps.saberBlocked = 0;
-		}
 		return;
 	}
 
@@ -1930,266 +1919,169 @@ int navTime = 0;
 
 
 void G_RunFrame(int levelTime) {
-	int			i;
+	int i;
 	gentity_t* ent;
-	int			ents_inuse = 0; // someone's gonna be pissed I put this here...
-#if	AI_TIMERS
+	int ents_inuse = 0;
+#if AI_TIMERS
 	AITime = 0;
 	navTime = 0;
-#endif//	AI_TIMERS
+#endif//AI_TIMERS
 
 	level.framenum++;
 	level.previousTime = level.time;
 	level.time = levelTime;
 
-	//ResetTeamCounters();
 	NAV::DecayDangerSenses();
 	Rail_Update();
 	Troop_Update();
 	Pilot_Update();
 
-
-	if (player && gi.WE_IsShaking(player->currentOrigin))
-	{
+	if (player && gi.WE_IsShaking(player->currentOrigin)) {
 		CGCam_Shake(0.45f, 100);
 	}
 
-
 	AI_UpdateGroups();
 
-
-
-
-	//Look to clear out old events
 	ClearPlayerAlertEvents();
 
-	//Run the frame for all entities
-//	for ( i = 0, ent = &g_entities[0]; i < globals.num_entities ; i++, ent++)
-	for (i = 0; i < globals.num_entities; i++)
-	{
-		//		if ( !ent->inuse )
-		//			continue;
-
+	for (i = 0; i < globals.num_entities; i++) {
 		if (!PInUse(i))
 			continue;
 		ents_inuse++;
 		ent = &g_entities[i];
 
-		// clear events that are too old
+		if (ent->physRagdoll && ent->client && ent->health <= 0) {  // Dodany warunek health <= 0
+			float deltaTime = (float)(levelTime - level.previousTime) * 0.001f;
+			ent->physRagdoll->Update(deltaTime);
+			continue; // Pomijamy resztê przetwarzania dla ragdolla
+		}
+
 		if (level.time - ent->eventTime > EVENT_VALID_MSEC) {
 			if (ent->s.event) {
-				ent->s.event = 0;	// &= EV_EVENT_BITS;
+				ent->s.event = 0;
 				if (ent->client) {
 					ent->client->ps.externalEvent = 0;
 				}
 			}
 			if (ent->freeAfterEvent) {
-				// tempEntities or dropped items completely go away after their event
 				G_FreeEntity(ent);
 				continue;
 			}
-			/*	// This is never set to true anywhere. Killing the field (BTO - VV)
-			else if ( ent->unlinkAfterEvent ) {
-				// items that will respawn will hide themselves after their pickup event
-				ent->unlinkAfterEvent = qfalse;
-				gi.unlinkentity( ent );
-			}
-			*/
 		}
 
-		// temporary entities don't think
 		if (ent->freeAfterEvent)
 			continue;
 
 		G_CheckTasksCompleted(ent);
-
 		G_Roff(ent);
 
-		if (!ent->client)
-		{
-			if (!(ent->svFlags & SVF_SELF_ANIMATING))
-			{//FIXME: make sure this is done only for models with frames?
-				//Or just flag as animating?
-				if (ent->s.eFlags & EF_ANIM_ONCE)
-				{
+		if (!ent->client) {
+			if (!(ent->svFlags & SVF_SELF_ANIMATING)) {
+				if (ent->s.eFlags & EF_ANIM_ONCE) {
 					ent->s.frame++;
 				}
-				else if (!(ent->s.eFlags & EF_ANIM_ALLFAST))
-				{
+				else if (!(ent->s.eFlags & EF_ANIM_ALLFAST)) {
 					G_Animate(ent);
 				}
 			}
 		}
 		G_CheckSpecialPersistentEvents(ent);
 
-		if (ent->s.eType == ET_MISSILE)
-		{
+		if (ent->s.eType == ET_MISSILE) {
 			G_RunMissile(ent);
 			continue;
-			if (ent->client && ent->client->isRagging && ent->physRagdoll)
-			{
-				float deltaTime = FRAMETIME * 0.001f;
-				ent->physRagdoll->Update(deltaTime);
-			}
 		}
 
-		if (ent->s.eType == ET_ITEM)
-		{
+		if (ent->s.eType == ET_ITEM) {
 			G_RunItem(ent);
 			continue;
-			if (ent->client && ent->client->isRagging && ent->physRagdoll)
-			{
-				float deltaTime = FRAMETIME * 0.001f;
-				ent->physRagdoll->Update(deltaTime);
-			}
 		}
 
-		if (ent->s.eType == ET_MOVER)
-		{
-			// FIXME string comparison in per-frame thinks wut???
-			if (ent->model && Q_stricmp("models/test/mikeg/tie_fighter.md3", ent->model) == 0)
-			{
+		if (ent->s.eType == ET_MOVER) {
+			if (ent->model && Q_stricmp("models/test/mikeg/tie_fighter.md3", ent->model) == 0) {
 				TieFighterThink(ent);
 			}
 			G_RunMover(ent);
 			continue;
 		}
 
-		//The player
-		if (i == 0)
-		{
-			// decay batteries if the goggles are active
-			if (cg.zoomMode == 1 && ent->client->ps.batteryCharge > 0)
-			{
+		if (i == 0) {
+			if (cg.zoomMode == 1 && ent->client->ps.batteryCharge > 0) {
 				ent->client->ps.batteryCharge--;
 			}
-			else if (cg.zoomMode == 3 && ent->client->ps.batteryCharge > 0)
-			{
+			else if (cg.zoomMode == 3 && ent->client->ps.batteryCharge > 0) {
 				ent->client->ps.batteryCharge -= 2;
-
-				if (ent->client->ps.batteryCharge < 0)
-				{
+				if (ent->client->ps.batteryCharge < 0) {
 					ent->client->ps.batteryCharge = 0;
 				}
 			}
 
 			G_CheckEndLevelTimers(ent);
-			//Recalculate the nearest waypoint for the coming NPC updates
 			NAV::GetNearestNode(ent);
 
-
-			if (ent->m_iIcarusID != IIcarusInterface::ICARUS_INVALID && !stop_icarus)
-			{
+			if (ent->m_iIcarusID != IIcarusInterface::ICARUS_INVALID && !stop_icarus) {
 				IIcarusInterface::GetIcarus()->Update(ent->m_iIcarusID);
 			}
-			//dead
-			if (ent->health <= 0)
-			{
-				if (ent->client->ps.groundEntityNum != ENTITYNUM_NONE)
-				{//on the ground
+			if (ent->health <= 0) {
+				if (ent->client->ps.groundEntityNum != ENTITYNUM_NONE) {
 					pitch_roll_for_slope(ent);
 				}
 			}
-
-			continue;	// players are ucmd driven
+			continue;
 		}
 
-		G_RunThink(ent);	// be aware that ent may be free after returning from here, at least one func frees them
-
-
-		ClearNPCGlobals();			//	but these 2 funcs are ok
-		//UpdateTeamCounters( ent );	//	   to call anyway on a freed ent.
+		G_RunThink(ent);
+		ClearNPCGlobals();
 	}
 
-	// perform final fixups on the player
+	// Aktualizacja ragdolli
+	if (g_useRagdoll->integer && !ent->physRagdoll) {
+		ent->physRagdoll = new SimpleRagdoll(ent);
+	}
+
 	ent = &g_entities[0];
-	if (ent->inuse)
-	{
+	if (ent->inuse) {
 		ClientEndFrame(ent);
 	}
-	if (g_numEntities->integer)
-	{
+	if (g_numEntities->integer) {
 		gi.Printf(S_COLOR_WHITE"Number of Entities in use : %d\n", ents_inuse);
 	}
-	//DEBUG STUFF
+
 	NAV::ShowDebugInfo(ent->currentOrigin, ent->waypoint);
 	NPC_ShowDebugInfo();
 
 	G_DynamicMusicUpdate();
 
-#if	AI_TIMERS
+#if AI_TIMERS
 	AITime -= navTime;
-	if (AITime > 20)
-	{
+	if (AITime > 20) {
 		gi.Printf(S_COLOR_RED"ERROR: total AI time: %d\n", AITime);
 	}
-	else if (AITime > 10)
-	{
+	else if (AITime > 10) {
 		gi.Printf(S_COLOR_YELLOW"WARNING: total AI time: %d\n", AITime);
 	}
-	else if (AITime > 2)
-	{
+	else if (AITime > 2) {
 		gi.Printf(S_COLOR_GREEN"total AI time: %d\n", AITime);
 	}
-	if (navTime > 20)
-	{
+	if (navTime > 20) {
 		gi.Printf(S_COLOR_RED"ERROR: total nav time: %d\n", navTime);
 	}
-	else if (navTime > 10)
-	{
+	else if (navTime > 10) {
 		gi.Printf(S_COLOR_YELLOW"WARNING: total nav time: %d\n", navTime);
 	}
-	else if (navTime > 2)
-	{
+	else if (navTime > 2) {
 		gi.Printf(S_COLOR_GREEN"total nav time: %d\n", navTime);
 	}
-#endif//	AI_TIMERS
-
-	if (g_useRagdoll->integer) {
-		for (int i = 0; i < MAX_GENTITIES; i++) {
-			gentity_t* ent = &g_entities[i];
-			if (!ent->inuse || !ent->physRagdoll)
-				continue;
-
-			ent->client->noRagTime = -1; // turns off broadsword
-			ent->client->ps.pm_type = PM_DEAD;
-			PM_SetTorsoAnimTimer(ent, &ent->client->ps.torsoAnimTimer, 0);
-			PM_SetLegsAnimTimer(ent, &ent->client->ps.legsAnimTimer, 0);
-			ent->client->ps.legsAnim = 0;
-			ent->client->ps.torsoAnim = 0;
-
-			if (ent->client) {
-				ent->client->ps.pm_type = PM_DEAD;
-				ent->client->ps.pm_flags |= PMF_TIME_KNOCKBACK;
-				ent->client->ps.eFlags |= EF_RAG;
-				VectorCopy(ent->currentOrigin, ent->client->ps.origin);
-			}
-
-			float deltaTime = (float)(levelTime - level.previousTime) * 0.001f;
-			ent->physRagdoll->Update(deltaTime);
-
-			// Ground collision
-			trace_t trace;
-			vec3_t start, end;
-			VectorCopy(ent->currentOrigin, start);
-			VectorCopy(ent->currentOrigin, end);
-			end[2] -= 64.0f;
-
-			gi.trace(&trace, start, ent->mins, ent->maxs, end,
-				ent->s.number, MASK_SOLID, (EG2_Collision)0, 0);
-		}
-	}
+#endif//AI_TIMERS
 
 	extern int delayedShutDown;
-	if (g_delayedShutdown->integer && delayedShutDown != 0 && delayedShutDown < level.time)
-	{
+	if (g_delayedShutdown->integer && delayedShutDown != 0 && delayedShutDown < level.time) {
 		assert(0);
 		G_Error("Game Errors. Scroll up the console to read them.\n");
 	}
 
 #ifdef _DEBUG
-	if (!(level.framenum & 0xff))
-	{
+	if (!(level.framenum & 0xff)) {
 		ValidateInUseBits();
 	}
 #endif

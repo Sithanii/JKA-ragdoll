@@ -360,6 +360,7 @@ extern	cvar_t* g_inactivity;
 extern	cvar_t* g_debugMove;
 extern	cvar_t* g_subtitles;
 extern	cvar_t* g_removeDoors;
+extern  cvar_t* g_ragdollForce;
 
 extern	cvar_t* g_ICARUSDebug;
 

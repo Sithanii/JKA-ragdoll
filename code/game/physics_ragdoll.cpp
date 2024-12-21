@@ -1,116 +1,93 @@
 #include "physics_ragdoll.h"
-#include "g_local.h"
-#include "../ghoul2/G2.h"
-#include "../cgame/cg_local.h"
 
-#ifdef _MSC_VER
-#pragma comment(lib, "BulletCollision.lib")
-#pragma comment(lib, "BulletDynamics.lib")
-#pragma comment(lib, "BulletSoftBody.lib")
-#pragma comment(lib, "LinearMath.lib")
-#endif
-
-int G_RagAnimForPositioning(gentity_t* ent) {
-    vec3_t dir;
-    mdxaBone_t matrix;
-    assert(ent->client);
-    vec3_t G2Angles = { 0, ent->client->ps.viewangles[YAW], 0 };
-    assert(ent->ghoul2.size() > 0);
-    assert(ent->crotchBolt > -1);
-
-    gi.G2API_GetBoltMatrix(ent->ghoul2, ent->playerModel, ent->crotchBolt, &matrix, G2Angles, ent->client->ps.origin,
-        (cg.time ? cg.time : level.time), NULL, ent->s.modelScale);
-    gi.G2API_GiveMeVectorFromMatrix(matrix, NEGATIVE_Z, dir);
-
-    return (dir[2] > 0.1f) ? BOTH_DEADFLOP2 : BOTH_DEADFLOP1;
+SimpleRagdoll::SimpleRagdoll(gentity_t* ent) : owner(ent), isEnabled(false) {
+    Initialize();
 }
 
-static const char* g_effectorStringTable[] = {
-   "lhand",
-   "rtibia",
-   "ltibia",
-   "rtalus",
-   "ltalus",
-   "lradiusX",
-   "rfemurX",
-   "lfemurX",
-   NULL
-};
-
-SimpleRagdoll::SimpleRagdoll(gentity_t* ent) {
-	owner = ent;
-	isEnabled = false;
-	gravity = -900.0f;
-	hasEffectorData = qfalse;
-	VectorClear(effectorTotal);
-
-	Initialize();
-}
-
-void SimpleRagdoll::ApplyDamageForce(vec3_t direction, float damage, int mod) {
-    if (!isEnabled) return;
-
-    btVector3 force(direction[0], direction[1], direction[2]);
-    force.normalize();
-    force *= damage * 10.0f;
-
-    for (auto& bone : bones) {
-        if (!bone.rigidBody) continue;
-        bone.rigidBody->activate(true);
-        bone.rigidBody->applyCentralImpulse(force);
+SimpleRagdoll::~SimpleRagdoll() {
+    // Usuñ wszystkie constraints
+    for (auto constraint : constraints) {
+        dynamicsWorld->removeConstraint(constraint);
+        delete constraint;
     }
+    constraints.clear();
+
+    // Usuñ wszystkie koœci
+    for (auto& bone : bones) {
+        if (bone.rigidBody) {
+            dynamicsWorld->removeRigidBody(bone.rigidBody);
+            delete bone.rigidBody->getMotionState();
+            delete bone.rigidBody;
+            delete bone.collisionShape;
+        }
+    }
+    bones.clear();
+
+    // Usuñ pod³o¿e
+    if (groundBody) {
+        dynamicsWorld->removeRigidBody(groundBody);
+        delete groundBody->getMotionState();
+        delete groundBody->getCollisionShape();
+        delete groundBody;
+    }
+
+    // Usuñ œwiat fizyki
+    delete dynamicsWorld;
+    delete solver;
+    delete broadphase;
+    delete dispatcher;
+    delete collisionConfig;
 }
 
 void SimpleRagdoll::Initialize() {
-    collisionConfiguration = new btDefaultCollisionConfiguration();
-    dispatcher = new btCollisionDispatcher(collisionConfiguration);
-    overlappingPairCache = new btDbvtBroadphase();
+    // Inicjalizacja œwiata fizyki
+    collisionConfig = new btDefaultCollisionConfiguration();
+    dispatcher = new btCollisionDispatcher(collisionConfig);
+    broadphase = new btDbvtBroadphase();
     solver = new btSequentialImpulseConstraintSolver();
-    dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
-    dynamicsWorld->setGravity(btVector3(0, 0, -900.0f));
-    btContactSolverInfo& info = dynamicsWorld->getSolverInfo();
-    info.m_erp = 0.4f;
-    info.m_erp2 = 0.2f;
-    info.m_linearSlop = 0.0f;
+    dynamicsWorld = new btSoftRigidDynamicsWorld(dispatcher, broadphase, solver, collisionConfig);
+    // Zwiêkszona grawitacja
+    dynamicsWorld->setGravity(btVector3(0, 0, -1600.0f));
 
-    vec3_t dir;
-    mdxaBone_t matrix;
-    gi.G2API_GetBoltMatrix(owner->ghoul2, owner->playerModel, owner->crotchBolt, 
-        &matrix, ownerAngles, owner->currentOrigin, level.time, NULL, owner->s.modelScale);
-    gi.G2API_GiveMeVectorFromMatrix(matrix, NEGATIVE_Z, dir);
+    // Wiêcej iteracji dla lepszej detekcji kolizji
+    btContactSolverInfo& solverInfo = dynamicsWorld->getSolverInfo();
+    solverInfo.m_numIterations = 20;
+    solverInfo.m_splitImpulse = true;
+    solverInfo.m_splitImpulsePenetrationThreshold = -0.1f;
+    solverInfo.m_erp = 0.2f;  // Dodane dla lepszej penetracji
+    solverInfo.m_erp2 = 0.8f; // Dodane dla lepszej stabilnoœci
 
-    // Ustaw pocz¹tkow¹ orientacjê dla wszystkich koœci
-    btQuaternion baseRotation;
-    if (dir[2] > 0.1f) {
-        baseRotation.setEulerZYX(0, M_PI/2, 0);
-    } else {
-        baseRotation.setEulerZYX(0, -M_PI/2, 0);
-    }
-
-    // Prosta p³aszczyzna dla kolizji
-    btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0, 0, 1), 0);
+    // Lepsze pod³o¿e
+    btCollisionShape* groundShape = new btStaticPlaneShape(btVector3(0, 0, 1), -1);
     btDefaultMotionState* groundMotionState = new btDefaultMotionState(
-        btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, 0)));
+        btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, -1)));
+
     btRigidBody::btRigidBodyConstructionInfo groundRbInfo(0, groundMotionState, groundShape, btVector3(0, 0, 0));
     groundBody = new btRigidBody(groundRbInfo);
-    groundBody->setFriction(0.8f);
-    groundBody->setRestitution(0.1f);
+    groundBody->setFriction(1.0f);
+    groundBody->setRestitution(0.0f);  // Brak odbicia
+    groundBody->setCollisionFlags(groundBody->getCollisionFlags() |
+        btCollisionObject::CF_STATIC_OBJECT |
+        btCollisionObject::CF_CUSTOM_MATERIAL_CALLBACK);
     dynamicsWorld->addRigidBody(groundBody);
 
+    // Inicjalizacja koœci ragdolla
     const char* boneNames[] = {
-        "pelvis", "lower_lumbar", "upper_lumbar", "thoracic", "cervical",
-        "cranium", "rclavical", "rhumerus", "rhumerusX", "rradius",
-        "rradiusX", "rhand", "lclavical", "lhumerus", "lhumerusX",
-        "lradius", "lradiusX", "lhand", "rfemurYZ", "rfemurX",
-        "rtibia", "rtalus", "rtail", "lfemurYZ", "lfemurX",
-        "ltibia", "ltalus", "ltail"
+        "pelvis",
+        "lower_lumbar", "upper_lumbar", "thoracic",
+        "cranium",
+        "rhumerus", "rradius", "rhand",
+        "lhumerus", "lradius", "lhand",
+        "rfemur", "rtibia", "rtalus",
+        "lfemur", "ltibia", "ltalus"
     };
 
     for (const char* boneName : boneNames) {
         InitializeBone(boneName);
     }
 
-    CreateBoneConstraints();
+    // Stwórz po³¹czenia miêdzy koœæmi
+    CreateConstraints();
 }
 
 void SimpleRagdoll::InitializeBone(const char* boneName) {
@@ -119,12 +96,12 @@ void SimpleRagdoll::InitializeBone(const char* boneName) {
     qhandle_t boneIndex = gi.G2API_GetBoneIndex(&owner->ghoul2[0], boneName, qtrue);
     if (boneIndex == -1) return;
 
-    Bone bone;
+    RagdollBone bone = {};
     Q_strncpyz(bone.boneName, boneName, sizeof(bone.boneName));
     bone.boneIndex = boneIndex;
     bone.isActive = qfalse;
 
-    // Get bone position
+    // Pobierz pozycjê koœci
     mdxaBone_t boneMatrix;
     vec3_t angles;
     VectorSet(angles, 0, owner->client->ps.viewangles[YAW], 0);
@@ -135,217 +112,290 @@ void SimpleRagdoll::InitializeBone(const char* boneName) {
         level.time, NULL, owner->s.modelScale
     );
 
-    btTransform transform;
-    transform.setIdentity();
-    transform.setOrigin(btVector3(
-        boneMatrix.matrix[0][3],
-        boneMatrix.matrix[1][3],
-        boneMatrix.matrix[2][3]
-    ));
+    bone.position[0] = boneMatrix.matrix[0][3];
+    bone.position[1] = boneMatrix.matrix[1][3];
+    bone.position[2] = boneMatrix.matrix[2][3];
 
-    bone.position[0] = transform.getOrigin().getX();
-    bone.position[1] = transform.getOrigin().getY();
-    bone.position[2] = transform.getOrigin().getZ();
-    VectorCopy(bone.position, bone.lastPosition);
-    VectorClear(bone.velocity);
+    bone.initialTransform.setIdentity();
+    bone.initialTransform.setOrigin(btVector3(bone.position[0], bone.position[1], bone.position[2]));
 
-    // Set mass and create collision shapes
+    // Ustaw parametry fizyki dla ka¿dej koœci
     if (strcmp(boneName, "pelvis") == 0) {
-        bone.mass = 10.0f;
-        bone.collisionShape = new btCapsuleShape(6.0f, 8.0f);
+        bone.mass = 15.0f;
+        bone.collisionShape = new btCapsuleShape(4.0f, 8.0f);
     }
     else if (strstr(boneName, "lumbar") || strcmp(boneName, "thoracic") == 0) {
+        bone.mass = 10.0f;
+        bone.collisionShape = new btCapsuleShape(3.5f, 7.0f);
+    }
+    else if (strstr(boneName, "femur")) {
         bone.mass = 8.0f;
-        bone.collisionShape = new btCapsuleShape(5.0f, 10.0f);
+        bone.collisionShape = new btCapsuleShape(3.0f, 14.0f);
     }
-    else if (strstr(boneName, "femur") || strstr(boneName, "tibia")) {
-        bone.mass = 7.0f;
-        bone.collisionShape = new btCapsuleShape(3.0f, 15.0f);
-    }
-    else if (strstr(boneName, "humerus") || strstr(boneName, "radius")) {
-        bone.mass = 5.0f;
+    else if (strstr(boneName, "tibia")) {
+        bone.mass = 6.0f;
         bone.collisionShape = new btCapsuleShape(2.5f, 12.0f);
     }
+    else if (strstr(boneName, "humerus")) {
+        bone.mass = 4.0f;
+        bone.collisionShape = new btCapsuleShape(2.0f, 10.0f);
+    }
+    else if (strstr(boneName, "radius")) {
+        bone.mass = 2.0f;
+        bone.collisionShape = new btCapsuleShape(1.5f, 8.0f);
+    }
     else if (strcmp(boneName, "cranium") == 0) {
-        bone.mass = 6.0f;
-        bone.collisionShape = new btSphereShape(5.0f);
+        bone.mass = 5.0f;
+        bone.collisionShape = new btSphereShape(4.0f);
     }
     else {
-        bone.mass = 3.0f;
-        bone.collisionShape = new btCapsuleShape(2.0f, 4.0f);
+        bone.mass = 1.0f;
+        bone.collisionShape = new btCapsuleShape(1.0f, 4.0f);
     }
 
     btVector3 localInertia(0, 0, 0);
     bone.collisionShape->calculateLocalInertia(bone.mass, localInertia);
 
-    btDefaultMotionState* motionState = new btDefaultMotionState(transform);
+    btDefaultMotionState* motionState = new btDefaultMotionState(bone.initialTransform);
     btRigidBody::btRigidBodyConstructionInfo rbInfo(bone.mass, motionState, bone.collisionShape, localInertia);
+
+    rbInfo.m_friction = 0.8f;
+    rbInfo.m_restitution = 0.1f;
+    rbInfo.m_linearDamping = 0.05f;
+    rbInfo.m_angularDamping = 0.85f;
+
     bone.rigidBody = new btRigidBody(rbInfo);
-
-    bone.rigidBody->setDamping(0.1f, 0.1f);
-    bone.rigidBody->setFriction(0.8f);
-    bone.rigidBody->setRestitution(0.2f);
-
-    dynamicsWorld->addRigidBody(bone.rigidBody);
-    bones.push_back(bone);
-
-    // Set physics properties
-    if (strcmp(boneName, "pelvis") == 0) {
-        bone.rigidBody->setDamping(0.1f, 0.1f);
-        bone.rigidBody->setAngularFactor(btVector3(0.5f, 0.5f, 0.5f));
-    }
-    else {
-        bone.rigidBody->setDamping(0.05f, 0.85f);
-    }
-
-    bone.rigidBody->setFriction(0.8f);
-    bone.rigidBody->setRestitution(0.2f);
     bone.rigidBody->setActivationState(DISABLE_DEACTIVATION);
 
     dynamicsWorld->addRigidBody(bone.rigidBody);
     bones.push_back(bone);
 }
 
-void SimpleRagdoll::CheckBoltPoints() {
-    int boltChecks[5];
-    vec3_t boltPoints[5];
-    vec3_t tAng;
+void SimpleRagdoll::CreateConstraints() {
+    struct ConstraintInfo {
+        const char* parent;
+        const char* child;
+        btVector3 axis;
+        float limit;
+    };
 
-    boltChecks[0] = gi.G2API_AddBolt(&owner->ghoul2[owner->playerModel], "rhand");
-    boltChecks[1] = gi.G2API_AddBolt(&owner->ghoul2[owner->playerModel], "lhand");
-    boltChecks[2] = gi.G2API_AddBolt(&owner->ghoul2[owner->playerModel], "cranium");
-    boltChecks[3] = gi.G2API_AddBolt(&owner->ghoul2[owner->playerModel], "rtalus");
-    boltChecks[4] = gi.G2API_AddBolt(&owner->ghoul2[owner->playerModel], "ltalus");
+    ConstraintInfo constraintInfos[] = {
+        {"pelvis", "lower_lumbar", btVector3(0,0,1), 30.0f},
+        {"lower_lumbar", "upper_lumbar", btVector3(0,0,1), 30.0f},
+        {"upper_lumbar", "thoracic", btVector3(0,0,1), 30.0f},
+        {"thoracic", "cranium", btVector3(0,0,1), 45.0f},
+        {"thoracic", "rhumerus", btVector3(1,0,0), 90.0f},
+        {"thoracic", "lhumerus", btVector3(1,0,0), 90.0f},
+        {"rhumerus", "rradius", btVector3(0,1,0), 120.0f},
+        {"lhumerus", "lradius", btVector3(0,1,0), 120.0f},
+        {"pelvis", "rfemur", btVector3(1,0,0), 90.0f},
+        {"pelvis", "lfemur", btVector3(1,0,0), 90.0f},
+        {"rfemur", "rtibia", btVector3(0,1,0), 120.0f},
+        {"lfemur", "ltibia", btVector3(0,1,0), 120.0f}
+    };
 
-    VectorSet(tAng, 0, owner->client->ps.viewangles[YAW], 0);
+    for (const auto& info : constraintInfos) {
+        RagdollBone* parent = nullptr;
+        RagdollBone* child = nullptr;
 
-    // Get head first
-    mdxaBone_t boltMatrix;
-    gi.G2API_GetBoltMatrix(owner->ghoul2, owner->playerModel, boltChecks[2],
-        &boltMatrix, tAng, owner->currentOrigin, level.time, NULL, owner->s.modelScale);
-    gi.G2API_GiveMeVectorFromMatrix(boltMatrix, ORIGIN, boltPoints[2]);
-
-    for (int i = 0; i < 5; i++) {
-        if (i == 2) continue;  // Skip head, already done
-
-        gi.G2API_GetBoltMatrix(owner->ghoul2, owner->playerModel, boltChecks[i],
-            &boltMatrix, tAng, owner->currentOrigin, level.time, NULL, owner->s.modelScale);
-        gi.G2API_GiveMeVectorFromMatrix(boltMatrix, ORIGIN, boltPoints[i]);
-
-        trace_t tr;
-        vec3_t trStart, trEnd;
-
-        if (i < 2) { // Hands trace to head
-            VectorCopy(boltPoints[i], trStart);
-            VectorCopy(boltPoints[2], trEnd);
-        }
-        else {
-            VectorCopy(boltPoints[i], trStart);
-            VectorCopy(owner->currentOrigin, trEnd);
+        for (auto& bone : bones) {
+            if (strcmp(bone.boneName, info.parent) == 0) parent = &bone;
+            if (strcmp(bone.boneName, info.child) == 0) child = &bone;
         }
 
-        gi.trace(&tr, trStart, NULL, NULL, trEnd, owner->s.number, MASK_SOLID, (EG2_Collision)0, 0);
-
-        if (tr.fraction != 1.0f || tr.startsolid || tr.allsolid) {
-            ProcessEffectorCollision(tr, i);
+        if (parent && child) {
+            CreateConstraint(parent, child, info.axis, info.limit);
         }
     }
 }
 
-void SimpleRagdoll::ProcessEffectorCollision(const trace_t& tr, int boneIndex) {
-    vec3_t effectorPosDif;
-    float magicFactor42 = 64.0f;
-    VectorScale(tr.plane.normal, magicFactor42, effectorPosDif);
-    VectorAdd(effectorTotal, effectorPosDif, effectorTotal);
-    hasEffectorData = qtrue;
+void SimpleRagdoll::CreateConstraint(RagdollBone* parent, RagdollBone* child, const btVector3& axis, float limit) {
+    btTransform parentFrame, childFrame;
+    parentFrame.setIdentity();
+    childFrame.setIdentity();
+
+    btVector3 parentPos = parent->rigidBody->getCenterOfMassPosition();
+    btVector3 childPos = child->rigidBody->getCenterOfMassPosition();
+
+    btVector3 center = (parentPos + childPos) * 0.5f;
+
+    parentFrame.setOrigin(parent->rigidBody->getCenterOfMassTransform().inverse()(center));
+    childFrame.setOrigin(child->rigidBody->getCenterOfMassTransform().inverse()(center));
+
+    btConeTwistConstraint* constraint = new btConeTwistConstraint(
+        *parent->rigidBody,
+        *child->rigidBody,
+        parentFrame,
+        childFrame
+    );
+
+    float limitRad = DEG2RAD(limit);
+    constraint->setLimit(limitRad, limitRad, limitRad);
+    constraint->setDamping(1.0f);
+
+    dynamicsWorld->addConstraint(constraint, true);
+    constraints.push_back(constraint);
 }
 
 void SimpleRagdoll::Enable(vec3_t force) {
     if (isEnabled) return;
-
     isEnabled = true;
 
-    owner->client->ps.pm_type = PM_DEAD;
-    owner->client->ps.eFlags |= EF_RAG;
+    // Zachowaj oryginaln¹ orientacjê
+    btQuaternion initialRot;
+    initialRot.setEulerZYX(
+        0, // roll
+        DEG2RAD(owner->client->ps.viewangles[YAW]), // yaw
+        0  // pitch
+    );
 
     btVector3 impactForce(force[0], force[1], force[2]);
     float forceMagnitude = impactForce.length();
 
-    if (forceMagnitude > 2000.0f) {
-        impactForce *= 2000.0f / forceMagnitude;
+    // Dostosuj si³ê impactu
+    if (forceMagnitude < 200.0f) {
+        impactForce = btVector3(force[0], force[1], force[2]);
+        impactForce.normalize();
+        impactForce *= 200.0f;
     }
+    else {
+        impactForce *= 2.0f;  // Zmniejszone z 3.0f
+    }
+
+    // Mniejsza dodatkowa si³a w górê
+    impactForce.setZ(impactForce.getZ() + 100.0f);  // Zmniejszone z 200.0f
 
     for (auto& bone : bones) {
         if (!bone.rigidBody) continue;
-
         bone.isActive = qtrue;
-        bone.rigidBody->setDamping(0.1f, 0.1f);
-        bone.rigidBody->setActivationState(DISABLE_DEACTIVATION);
-        bone.rigidBody->applyCentralImpulse(impactForce);
 
-        btVector3 boneForce = impactForce;
+        // Zachowaj pocz¹tkow¹ orientacjê dla ka¿dej koœci
+        btTransform current = bone.initialTransform;
+        current.setRotation(initialRot);
+        bone.rigidBody->setWorldTransform(current);
+
+        // Zablokuj kompletnie rotacjê w osiach X i Z na pocz¹tku
+        bone.rigidBody->setAngularFactor(btVector3(0, 1, 0));
+
+        // Aplikuj si³ê zale¿nie od koœci
+        btVector3 totalForce;
         if (strcmp(bone.boneName, "pelvis") == 0) {
-            boneForce *= 1.5f;
+            totalForce = impactForce * 1.0f;  // Zwiêkszone z 0.8f
+            bone.rigidBody->setAngularFactor(btVector3(0, 1, 0));
+            bone.rigidBody->setDamping(0.3f, 0.3f);  // Zmniejszone t³umienie
         }
-        else if (strstr(bone.boneName, "thoracic") || strcmp(bone.boneName, "cranium") == 0) {
-            boneForce *= 1.3f;
+        else if (strstr(bone.boneName, "lumbar") || strcmp(bone.boneName, "thoracic") == 0) {
+            totalForce = impactForce * 0.9f;  // Zwiêkszone z 0.7f
+            bone.rigidBody->setAngularFactor(btVector3(0, 1, 0));
+            bone.rigidBody->setDamping(0.3f, 0.3f);
         }
-        else if (strstr(bone.boneName, "femur") || strstr(bone.boneName, "tibia")) {
-            boneForce *= 0.8f;
+        else {
+            totalForce = impactForce * 0.8f;  // Zwiêkszone z 0.6f
+            bone.rigidBody->setDamping(0.3f, 0.3f);
         }
 
-        boneForce += btVector3(
-            Q_flrand(-50.0f, 50.0f),
-            Q_flrand(-50.0f, 50.0f),
-            Q_flrand(-50.0f, 50.0f)
-        );
-
-        bone.rigidBody->applyCentralImpulse(boneForce);
+        // Dodaj si³ê w kierunku uderzenia
+        bone.rigidBody->setLinearVelocity(totalForce * 0.4f);  // Zwiêkszone z 0.3f
+        bone.rigidBody->applyCentralImpulse(totalForce);
     }
+
+    bones[0].rigidBody->setActivationState(DISABLE_DEACTIVATION);
 }
 
 void SimpleRagdoll::Update(float deltaTime) {
     if (!isEnabled || !owner || !owner->client || !dynamicsWorld) return;
 
-    // Limit maximum timestep
+    static float timeElapsed = 0.0f;
+    timeElapsed += deltaTime;
+
     const float maxTimeStep = 1.0f / 60.0f;
     deltaTime = (deltaTime > maxTimeStep) ? maxTimeStep : deltaTime;
 
-    dynamicsWorld->stepSimulation(deltaTime, 10);
-    CheckBoltPoints();
+    dynamicsWorld->stepSimulation(deltaTime, 10, 1.0f / 60.0f);
 
-    if (hasEffectorData) {
-        VectorNormalize(effectorTotal);
-        VectorScale(effectorTotal, 7.0f, effectorTotal);
+    // Stopniowo odblokowuj rotacjê po 0.2 sekundy
+    if (timeElapsed > 0.2f && timeElapsed < 0.7f) {
+        for (auto& bone : bones) {
+            if (!bone.rigidBody) continue;
 
-        int i = 0;
-        while (g_effectorStringTable[i]) {
-            for (auto& bone : bones) {
-                if (!bone.rigidBody) continue;
-                if (strcmp(bone.boneName, g_effectorStringTable[i]) == 0) {
-                    btVector3 force(effectorTotal[0], effectorTotal[1], effectorTotal[2]);
-                    bone.rigidBody->applyCentralImpulse(force);
-                    break;
-                }
+            float factor = (timeElapsed - 0.2f) / 0.5f;
+            factor = factor > 1.0f ? 1.0f : factor;
+
+            if (strcmp(bone.boneName, "pelvis") == 0) {
+                bone.rigidBody->setAngularFactor(btVector3(0.3f * factor, 1, 0.3f * factor));
             }
-            i++;
+            else {
+                bone.rigidBody->setAngularFactor(btVector3(factor, 1, factor));
+            }
         }
-
-        VectorClear(effectorTotal);
-        hasEffectorData = qfalse;
     }
 
-    // Update bone positions and angles
+    // SprawdŸ czy postaæ jest na ziemi
+    bool isOnGround = false;
+    static float onGroundTime = 0.0f;
+
     for (auto& bone : bones) {
         if (!bone.rigidBody) continue;
 
         btTransform trans;
         bone.rigidBody->getMotionState()->getWorldTransform(trans);
-
         const btVector3& pos = trans.getOrigin();
         bone.position[0] = pos.getX();
         bone.position[1] = pos.getY();
         bone.position[2] = pos.getZ();
+
+        // SprawdŸ kolizje ze œcianami
+        trace_t trace;
+        vec3_t start, end;
+        VectorCopy(bone.position, start);
+        VectorCopy(bone.position, end);
+
+        gi.trace(&trace, start, NULL, NULL, end, owner->s.number, MASK_SOLID, (EG2_Collision)0, 0);
+        if (trace.startsolid || trace.allsolid) {
+            // Jeœli koœæ jest w œcianie, wypchnij j¹
+            btVector3 pushDir(trace.plane.normal[0], trace.plane.normal[1], trace.plane.normal[2]);
+            bone.rigidBody->applyCentralImpulse(pushDir * 100.0f);
+        }
+
+        // SprawdŸ kolizjê z pod³o¿em
+        if (pos.getZ() < 1.0f) {
+            isOnGround = true;
+            if (pos.getZ() < -1.0f) {
+                btTransform newTrans = trans;
+                newTrans.getOrigin().setZ(-1.0f);
+                bone.rigidBody->getMotionState()->setWorldTransform(newTrans);
+                bone.rigidBody->setWorldTransform(newTrans);
+
+                btVector3 velocity = bone.rigidBody->getLinearVelocity();
+                if (velocity.getZ() < 0) {
+                    velocity.setZ(0);
+                    bone.rigidBody->setLinearVelocity(velocity);
+                }
+            }
+        }
+
+        // Ogranicz maksymaln¹ prêdkoœæ
+        btVector3 velocity = bone.rigidBody->getLinearVelocity();
+        float speed = velocity.length();
+        const float maxSpeed = 800.0f;  // Zmniejszona maksymalna prêdkoœæ
+        if (speed > maxSpeed) {
+            velocity *= (maxSpeed / speed);
+            bone.rigidBody->setLinearVelocity(velocity);
+        }
+
+        // Zwiêksz t³umienie jeœli postaæ jest na ziemi
+        if (isOnGround) {
+            onGroundTime += deltaTime;
+            if (onGroundTime > 1.0f) {  // Po sekundzie na ziemi
+                bone.rigidBody->setDamping(1.5f, 1.5f);  // Zwiêksz t³umienie
+                // Ogranicz prêdkoœæ k¹tow¹
+                btVector3 angVel = bone.rigidBody->getAngularVelocity();
+                if (angVel.length() > 3.0f) {
+                    angVel *= 3.0f / angVel.length();
+                    bone.rigidBody->setAngularVelocity(angVel);
+                }
+            }
+        }
 
         btMatrix3x3 rot = trans.getBasis();
         btScalar yaw, pitch, roll;
@@ -368,115 +418,21 @@ void SimpleRagdoll::Update(float deltaTime) {
             100,
             level.time
         );
-    }
-}
 
-void SimpleRagdoll::CreateBoneConstraints() {
-    struct BoneConnection {
-        const char* parent;
-        const char* child;
-        float breakingThreshold;
-    };
-
-    BoneConnection connections[] = {
-        {"pelvis", "lower_lumbar", 1000.0f},
-        {"lower_lumbar", "upper_lumbar", 1000.0f},
-        {"upper_lumbar", "thoracic", 1000.0f}
-    };
-
-    for (const auto& conn : connections) {
-        Bone* parent = nullptr;
-        Bone* child = nullptr;
-
-        for (auto& bone : bones) {
-            if (strcmp(bone.boneName, conn.parent) == 0) parent = &bone;
-            if (strcmp(bone.boneName, conn.child) == 0) child = &bone;
+        if (strcmp(bone.boneName, "pelvis") == 0) {
+            VectorCopy(bone.position, owner->currentOrigin);
+            VectorCopy(bone.position, owner->s.origin);
+            VectorCopy(bone.position, owner->s.pos.trBase);
+            gi.linkentity(owner);
         }
-
-        if (!parent || !child || !parent->rigidBody || !child->rigidBody) continue;
-
-        btTransform localA, localB;
-        localA.setIdentity();
-        localB.setIdentity();
-
-        btGeneric6DofConstraint* constraint = new btGeneric6DofConstraint(
-            *parent->rigidBody,
-            *child->rigidBody,
-            localA,
-            localB,
-            true
-        );
-
-        constraint->setBreakingImpulseThreshold(conn.breakingThreshold);
-        constraint->setLinearLowerLimit(btVector3(-SIMD_PI / 8, -SIMD_PI / 8, -SIMD_PI / 8));
-        constraint->setLinearUpperLimit(btVector3(SIMD_PI / 8, SIMD_PI / 8, SIMD_PI / 8));
-
-        dynamicsWorld->addConstraint(constraint, true);
     }
-}
-
-void SimpleRagdoll::CreateConstraint(const char* parentName, const char* childName, float strength) {
-    Bone* parent = nullptr;
-    Bone* child = nullptr;
-
-    for (auto& bone : bones) {
-        if (strcmp(bone.boneName, parentName) == 0) parent = &bone;
-        if (strcmp(bone.boneName, childName) == 0) child = &bone;
-    }
-
-    if (!parent || !child || !parent->rigidBody || !child->rigidBody) return;
-
-    btTransform frameInA, frameInB;
-    frameInA.setIdentity();
-    frameInB.setIdentity();
-
-    btPoint2PointConstraint* p2p = new btPoint2PointConstraint(
-        *parent->rigidBody,
-        *child->rigidBody,
-        btVector3(0, 0, 0),
-        btVector3(0, 0, 0)
-    );
-
-    p2p->setParam(BT_CONSTRAINT_STOP_CFM, 0.8f);
-    p2p->setParam(BT_CONSTRAINT_STOP_ERP, 0.6f);
-
-    dynamicsWorld->addConstraint(p2p, true);
 }
 
 void SimpleRagdoll::ApplyForce(vec3_t force, int boneIndex) {
-    if (!isEnabled) return;
+    if (!isEnabled || boneIndex >= bones.size()) return;
 
-    if (boneIndex >= 0 && boneIndex < bones.size() && bones[boneIndex].rigidBody) {
-        bones[boneIndex].rigidBody->activate(true);
-        btVector3 btForce(force[0], force[1], force[2]);
-        bones[boneIndex].rigidBody->applyCentralImpulse(btForce);
-    }
-}
+    auto& bone = bones[boneIndex];
+    if (!bone.rigidBody) return;
 
-SimpleRagdoll::~SimpleRagdoll() {
-    while (dynamicsWorld->getNumConstraints() > 0) {
-        btTypedConstraint* constraint = dynamicsWorld->getConstraint(0);
-        dynamicsWorld->removeConstraint(constraint);
-        delete constraint;
-    }
-
-    for (auto& bone : bones) {
-        if (bone.rigidBody) {
-            dynamicsWorld->removeRigidBody(bone.rigidBody);
-            delete bone.rigidBody->getMotionState();
-            delete bone.collisionShape;
-            delete bone.rigidBody;
-        }
-    }
-
-    delete groundBody->getMotionState();
-    delete groundBody->getCollisionShape();
-    dynamicsWorld->removeRigidBody(groundBody);
-    delete groundBody;
-
-    delete dynamicsWorld;
-    delete solver;
-    delete overlappingPairCache;
-    delete dispatcher;
-    delete collisionConfiguration;
+    bone.rigidBody->applyCentralImpulse(btVector3(force[0], force[1], force[2]));
 }

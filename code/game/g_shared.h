@@ -968,6 +968,8 @@ public:
 #define MAX_INHAND_WEAPONS	2
 
 
+
+
 typedef struct centity_s centity_t;
 // !!!!!!!!!!! LOADSAVE-affecting struct !!!!!!!!!!!!!
 struct gentity_s {
